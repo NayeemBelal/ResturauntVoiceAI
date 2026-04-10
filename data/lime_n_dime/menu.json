@@ -1,0 +1,1084 @@
+{
+  "restaurant_slug": "lime_n_dime",
+  "restaurant_name": "Lime N Dime",
+  "restaurant_id": "a9d9fb45-34a7-4c63-b0d9-70add44b6275",
+  "merchant_id": "H7PH72S1E7FY1",
+  "environment": "production",
+  "fetched_at": "2026-03-04T16:57:21.082081",
+  "shared_modifier_groups": {
+    "combo": {
+      "group_name": "Combo",
+      "modifiers": [
+        {
+          "mod_id": "ANW10TCQFQ76Y",
+          "mod_name": "Combo Plain Fries N Drink",
+          "price": 4,
+          "price_english": "four dollars"
+        },
+        {
+          "mod_id": "2VRW9M4X1CXP4",
+          "mod_name": "Side Plain Fries",
+          "price": 3,
+          "price_english": "three dollars"
+        },
+        {
+          "mod_id": "20HPAS57NBTMW",
+          "mod_name": "Waffle Fries",
+          "price": 1.1,
+          "price_english": "one dollar and ten cents"
+        },
+        {
+          "mod_id": "KMJCPF8K5HA20",
+          "mod_name": "Drink",
+          "price": 1.75,
+          "price_english": "one dollar and seventy-five cents"
+        },
+        {
+          "mod_id": "0VVYKYTPSNHA2",
+          "mod_name": "Water",
+          "price": 1.75,
+          "price_english": "one dollar and seventy-five cents"
+        },
+        {
+          "mod_id": "6EF4MQVEZ7YTY",
+          "mod_name": "Onion Rings",
+          "price": 4,
+          "price_english": "four dollars"
+        },
+        {
+          "mod_id": "C7TSBZZ2HFRNC",
+          "mod_name": "Conmbo Waffle Fries N Drink",
+          "price": 2,
+          "price_english": "two dollars"
+        },
+        {
+          "mod_id": "603VMQZPZKCZC",
+          "mod_name": "Combo Cheese Fries N Drink",
+          "price": 5,
+          "price_english": "five dollars"
+        },
+        {
+          "mod_id": "YWDB7S9DQQVCY",
+          "mod_name": "Cheese Fries",
+          "price": 4,
+          "price_english": "four dollars"
+        },
+        {
+          "mod_id": "F1PVJYV9YZA7E",
+          "mod_name": "Combo Cajun Fries and Drink",
+          "price": 4,
+          "price_english": "four dollars"
+        },
+        {
+          "mod_id": "BP2650B3P05TR",
+          "mod_name": "Combo Onion Rings N Drink",
+          "price": 5,
+          "price_english": "five dollars"
+        },
+        {
+          "mod_id": "78CQGAX2KV33W",
+          "mod_name": "Side Cajun Fries",
+          "price": 3,
+          "price_english": "three dollars"
+        },
+        {
+          "mod_id": "M4TTWY00XNK3M",
+          "mod_name": "French Fries No Salt",
+          "price": 3,
+          "price_english": "three dollars"
+        }
+      ]
+    },
+    "burgers_sandwich": {
+      "group_name": "Burgers/sandwich",
+      "modifiers": [
+        {
+          "mod_id": "6ZB6J8SXZXB8E",
+          "mod_name": "NO Tomatos",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "MNYND43EJ5BWC",
+          "mod_name": "No Pickle",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "CWG4X0N60PA1E",
+          "mod_name": "NO Lettuce",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "HJ9DE4QXDCHWJ",
+          "mod_name": "NO Onion",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "VAPF6266G7AD2",
+          "mod_name": "Sauce On Side",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "YGF1C6JNT13F6",
+          "mod_name": "Everything On Side",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "M96JR87PX1RVP",
+          "mod_name": "Swiss",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "B6CSB4TDQ93DJ",
+          "mod_name": "American",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "0TFCSYGQZX0VA",
+          "mod_name": "No Cheese",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "Z8HS80Q32738C",
+          "mod_name": "No Mayonnaise",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "FVCE32HRHR8VJ",
+          "mod_name": "No Mustrard",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "NC6MR6FWCDZ0R",
+          "mod_name": "No Ketchup",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "XK6S4M79GD0PR",
+          "mod_name": "Cut In Half",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "FR8GK8ZXXG2AE",
+          "mod_name": "Plain And Dry",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "PSNDBK5KSJ2YY",
+          "mod_name": "Plain",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "G15SYVN66P748",
+          "mod_name": "Dry",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "HVENN6JTBTPH2",
+          "mod_name": "To Go",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "KDZGADVCCVJ0M",
+          "mod_name": "No Jalapeno",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "N56GR21PF5TZC",
+          "mod_name": "No Mushroom",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "CHVD58DFCSP3J",
+          "mod_name": "Salad Style",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "Q7T5D23H0EJFR",
+          "mod_name": "No Bacon",
+          "price": 0,
+          "price_english": "zero dollars"
+        }
+      ]
+    },
+    "add_ons": {
+      "group_name": "Add Ons",
+      "modifiers": [
+        {
+          "mod_id": "A9N4BJR9VC1GM",
+          "mod_name": "Bacon",
+          "price": 1,
+          "price_english": "one dollar"
+        },
+        {
+          "mod_id": "RXWKX09VV60RM",
+          "mod_name": "Egg",
+          "price": 1,
+          "price_english": "one dollar"
+        },
+        {
+          "mod_id": "YGRTBBC7DAB64",
+          "mod_name": "American Cheese",
+          "price": 1,
+          "price_english": "one dollar"
+        },
+        {
+          "mod_id": "KRE1H98D0SZJM",
+          "mod_name": "Swiss Cheese",
+          "price": 1,
+          "price_english": "one dollar"
+        },
+        {
+          "mod_id": "F46PV42KD6N32",
+          "mod_name": "Jalapeño",
+          "price": 1,
+          "price_english": "one dollar"
+        },
+        {
+          "mod_id": "WNDBMH72S69G2",
+          "mod_name": "Pickle",
+          "price": 1,
+          "price_english": "one dollar"
+        },
+        {
+          "mod_id": "TDGVZ2DGCFPVA",
+          "mod_name": "Mushroom",
+          "price": 1,
+          "price_english": "one dollar"
+        },
+        {
+          "mod_id": "Q8DP43D78ZJME",
+          "mod_name": "Pepperoni",
+          "price": 1,
+          "price_english": "one dollar"
+        },
+        {
+          "mod_id": "SMD1QKMJSNNJ6",
+          "mod_name": "Ketchup",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "GEBPPC5HM9F1Y",
+          "mod_name": "Mayo",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "P2AZJ6HWFS15R",
+          "mod_name": "Mustard",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "PHMJHREDG6JFT",
+          "mod_name": "Make It Spicy - Lite",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "A7A0069VX71P0",
+          "mod_name": "Tomatos",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "H1RVXAZ42WQ2E",
+          "mod_name": "Lettuce",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "FDTN5J9XGQF4C",
+          "mod_name": "Onion",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "WN581TA9Y2SPW",
+          "mod_name": "Double Patty",
+          "price": 3,
+          "price_english": "three dollars"
+        },
+        {
+          "mod_id": "1RQYZ73X7KTTC",
+          "mod_name": "Chettos",
+          "price": 1,
+          "price_english": "one dollar"
+        },
+        {
+          "mod_id": "7EFX1QZCASZPP",
+          "mod_name": "Grill Onion",
+          "price": 0.5,
+          "price_english": "zero dollars and fifty cents"
+        },
+        {
+          "mod_id": "189S5CB9EENTC",
+          "mod_name": "Avocado",
+          "price": 1,
+          "price_english": "one dollar"
+        },
+        {
+          "mod_id": "1WXS57A67W0TE",
+          "mod_name": "House Sauce",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "KJPVNWDS5VDX8",
+          "mod_name": "House Sauce On Side",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "1C6NMBJ9986DY",
+          "mod_name": "Pepperjack Cheese",
+          "price": 1,
+          "price_english": "one dollar"
+        },
+        {
+          "mod_id": "XVEYHN8NEM6B6",
+          "mod_name": "Double American Cheese",
+          "price": 2,
+          "price_english": "two dollars"
+        },
+        {
+          "mod_id": "SMAMWN9T0KZTR",
+          "mod_name": "Double Swiss Cheese",
+          "price": 2,
+          "price_english": "two dollars"
+        },
+        {
+          "mod_id": "YK2G7SFGNZ26Y",
+          "mod_name": "Double Bacon",
+          "price": 2,
+          "price_english": "two dollars"
+        },
+        {
+          "mod_id": "DHR5TDR52SC88",
+          "mod_name": "Cheese Patty",
+          "price": 3,
+          "price_english": "three dollars"
+        },
+        {
+          "mod_id": "4VGDBJECTJHJ6",
+          "mod_name": "Spicy Ketchup",
+          "price": 1,
+          "price_english": "one dollar"
+        },
+        {
+          "mod_id": "5GT8PG3ZHN4RT",
+          "mod_name": "Make it Spicy - Medium",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "1X7E14HFJEQQ6",
+          "mod_name": "Make it Spicy - Heavy",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "BQ7KV8ZTDYSKM",
+          "mod_name": "Grill Jalapeno",
+          "price": 1,
+          "price_english": "one dollar"
+        }
+      ]
+    },
+    "cook_level": {
+      "group_name": "Cook Level",
+      "modifiers": [
+        {
+          "mod_id": "3PMWXGXNC4YR6",
+          "mod_name": "Rare",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "R8XKZZGYRSDVM",
+          "mod_name": "Medium Rare",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "GH38F6ZBRGQ3M",
+          "mod_name": "Medium Well",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "4DWA32Y06H0SJ",
+          "mod_name": "Well-doine",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "KRMZAY3ES13E4",
+          "mod_name": "Medium",
+          "price": 0,
+          "price_english": "zero dollars"
+        }
+      ]
+    },
+    "sauce": {
+      "group_name": "Sauce",
+      "modifiers": [
+        {
+          "mod_id": "NE1TER2RWZ6H2",
+          "mod_name": "Spicy Bang Bang",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "GVE72NPN7ZX5E",
+          "mod_name": "BBQ",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "JE9YFTXW2RNR2",
+          "mod_name": "Buffalo",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "64D7NKCA9MQ5R",
+          "mod_name": "Lemon Pepper (DRY)",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "B8XW0SVPHWNQT",
+          "mod_name": "Bangkok Chilli",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "917AEXYWC01FT",
+          "mod_name": "Naked (no sauce)",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "SPGZDR89GDJ5P",
+          "mod_name": "Sauce on Side",
+          "price": 0.5,
+          "price_english": "zero dollars and fifty cents"
+        },
+        {
+          "mod_id": "KY69VRCDZ40VE",
+          "mod_name": "Fried Crispy",
+          "price": 1.5,
+          "price_english": "one dollar and fifty cents"
+        }
+      ]
+    },
+    "heat_level": {
+      "group_name": "Heat Level",
+      "modifiers": [
+        {
+          "mod_id": "DHS5TTFPQJHD2",
+          "mod_name": "Mild",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "ZS6W2F2PH7XV2",
+          "mod_name": "Hot",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "BEFR2GHA5T6Q6",
+          "mod_name": "Extra Hot",
+          "price": 0,
+          "price_english": "zero dollars"
+        }
+      ]
+    },
+    "meat": {
+      "group_name": "Meat",
+      "modifiers": [
+        {
+          "mod_id": "2DQEYWG0JPVM4",
+          "mod_name": "Beef",
+          "price": 2,
+          "price_english": "two dollars"
+        },
+        {
+          "mod_id": "A4D0X6NB9FYCY",
+          "mod_name": "Crispy Chicken",
+          "price": 1,
+          "price_english": "one dollar"
+        },
+        {
+          "mod_id": "706BBCNX3NF8C",
+          "mod_name": "Grill Chicken",
+          "price": 0,
+          "price_english": "zero dollars"
+        }
+      ]
+    },
+    "fries_add_on": {
+      "group_name": "Fries Add On",
+      "modifiers": [
+        {
+          "mod_id": "5WNG48NSZSWZ8",
+          "mod_name": "Extra Cheese",
+          "price": 1,
+          "price_english": "one dollar"
+        },
+        {
+          "mod_id": "Y2G3TP7GMJXKP",
+          "mod_name": "Extra Meat",
+          "price": 2,
+          "price_english": "two dollars"
+        },
+        {
+          "mod_id": "Y83VV54Y910G4",
+          "mod_name": "Extra Sauce",
+          "price": 0.5,
+          "price_english": "zero dollars and fifty cents"
+        },
+        {
+          "mod_id": "A7PM0YRXKQE28",
+          "mod_name": "Sauce On Side",
+          "price": 0,
+          "price_english": "zero dollars"
+        }
+      ]
+    },
+    "substitution": {
+      "group_name": "Substitution",
+      "modifiers": [
+        {
+          "mod_id": "SYPZB1BXM1C7P",
+          "mod_name": "Onion Rings",
+          "price": 2,
+          "price_english": "two dollars"
+        },
+        {
+          "mod_id": "B5N12RD54SQSY",
+          "mod_name": "Beef",
+          "price": 2,
+          "price_english": "two dollars"
+        },
+        {
+          "mod_id": "GTTTHR8SP96G2",
+          "mod_name": "Crispy Chicken",
+          "price": 1,
+          "price_english": "one dollar"
+        }
+      ]
+    },
+    "philly": {
+      "group_name": "Philly",
+      "modifiers": [
+        {
+          "mod_id": "J9G29A8YG60FJ",
+          "mod_name": "No Bell Peper",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "90BQVE8QVXQH0",
+          "mod_name": "No Grill Onion",
+          "price": 0,
+          "price_english": "zero dollars"
+        },
+        {
+          "mod_id": "22ECQR79A8QFC",
+          "mod_name": "No Mushroom",
+          "price": 0,
+          "price_english": "zero dollars"
+        }
+      ]
+    }
+  },
+  "items": [
+    {
+      "item_id": "S52CWA3JN9ETA",
+      "item_name": "Classic Hot Dog",
+      "modifier_groups": [],
+      "price": 5.1,
+      "price_english": "five dollars and ten cents"
+    },
+    {
+      "item_id": "T25S68XJM5SPM",
+      "item_name": "3 pcs Chicken Tender",
+      "modifier_groups": ["combo"],
+      "price": 8.1,
+      "price_english": "eight dollars and ten cents"
+    },
+    {
+      "item_id": "16578KRKRRW1M",
+      "item_name": "Junior Cheeseburger Fries N Juice",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "cook_level"],
+      "price": 5.1,
+      "price_english": "five dollars and ten cents"
+    },
+    {
+      "item_id": "NHFKB8KQG64YY",
+      "item_name": "Chicken Nuggets N Fries 6 Pc",
+      "modifier_groups": [],
+      "price": 7.1,
+      "price_english": "seven dollars and ten cents"
+    },
+    {
+      "item_id": "WN12S5EDSY4Q0",
+      "item_name": "Sauce - A1",
+      "modifier_groups": [],
+      "price": 0.5,
+      "price_english": "zero dollars and fifty cents"
+    },
+    {
+      "item_id": "D0RJM1NGT9TET",
+      "item_name": "Sauce - BBQ",
+      "modifier_groups": [],
+      "price": 0.5,
+      "price_english": "zero dollars and fifty cents"
+    },
+    {
+      "item_id": "H1AKV3YJ72QP8",
+      "item_name": "Sauce - Dallas Hot",
+      "modifier_groups": [],
+      "price": 0.5,
+      "price_english": "zero dollars and fifty cents"
+    },
+    {
+      "item_id": "KTE7X6SW4Y462",
+      "item_name": "Sauce - Crispy Chiken",
+      "modifier_groups": [],
+      "price": 0.5,
+      "price_english": "zero dollars and fifty cents"
+    },
+    {
+      "item_id": "9HJCGK6TXC53W",
+      "item_name": "Sauce - Nashville",
+      "modifier_groups": [],
+      "price": 0.5,
+      "price_english": "zero dollars and fifty cents"
+    },
+    {
+      "item_id": "GB2S9JGT00DCC",
+      "item_name": "Sauce - Popeyes Copycat",
+      "modifier_groups": [],
+      "price": 0.5,
+      "price_english": "zero dollars and fifty cents"
+    },
+    {
+      "item_id": "ZZMKMDR3Q7R0G",
+      "item_name": "Other - Sauce",
+      "modifier_groups": [],
+      "price": 0.5,
+      "price_english": "zero dollars and fifty cents"
+    },
+    {
+      "item_id": "NZBJ91HMN4H5G",
+      "item_name": "Sauce - Zinger",
+      "modifier_groups": [],
+      "price": 0.5,
+      "price_english": "zero dollars and fifty cents"
+    },
+    {
+      "item_id": "T7BTF5057E7DR",
+      "item_name": "Sauce - House Green",
+      "modifier_groups": [],
+      "price": 0.5,
+      "price_english": "zero dollars and fifty cents"
+    },
+    {
+      "item_id": "ZAJKW6ZJJBEHJ",
+      "item_name": "Sauce - Red Spicy",
+      "modifier_groups": [],
+      "price": 0.5,
+      "price_english": "zero dollars and fifty cents"
+    },
+    {
+      "item_id": "MXG954ZPCHPPC",
+      "item_name": "Sauce - Spicy Bang Bang",
+      "modifier_groups": [],
+      "price": 0.5,
+      "price_english": "zero dollars and fifty cents"
+    },
+    {
+      "item_id": "HTZ3YRY0KBJVR",
+      "item_name": "Sauce Garlic",
+      "modifier_groups": [],
+      "price": 0.5,
+      "price_english": "zero dollars and fifty cents"
+    },
+    {
+      "item_id": "8HEDSSXSEDTGA",
+      "item_name": "Wings - 6 Pcs",
+      "modifier_groups": ["combo", "sauce"],
+      "price": 10.1,
+      "price_english": "ten dollars and ten cents"
+    },
+    {
+      "item_id": "MNE10RQGAGWY0",
+      "item_name": "Nashville Hot Wings - 5pcs",
+      "modifier_groups": ["combo", "heat_level"],
+      "price": 10.1,
+      "price_english": "ten dollars and ten cents"
+    },
+    {
+      "item_id": "9H207W4R5H7BG",
+      "item_name": "Nashville Hot Wings - 3pcs",
+      "modifier_groups": ["combo", "heat_level"],
+      "price": 6.1,
+      "price_english": "six dollars and ten cents"
+    },
+    {
+      "item_id": "ZT6PXWZCM40FJ",
+      "item_name": "Chocolate Milkshake",
+      "modifier_groups": [],
+      "price": 5.1,
+      "price_english": "five dollars and ten cents"
+    },
+    {
+      "item_id": "H374D77PPQXD8",
+      "item_name": "Rose Milkshake",
+      "modifier_groups": [],
+      "price": 5.1,
+      "price_english": "five dollars and ten cents"
+    },
+    {
+      "item_id": "6FSZCT2WMXK6G",
+      "item_name": "Mango Milkshake",
+      "modifier_groups": [],
+      "price": 5.1,
+      "price_english": "five dollars and ten cents"
+    },
+    {
+      "item_id": "4AY7JCM0WQ26M",
+      "item_name": "Vanilla Milkshake",
+      "modifier_groups": [],
+      "price": 5.1,
+      "price_english": "five dollars and ten cents"
+    },
+    {
+      "item_id": "WQ3JM070D7XHJ",
+      "item_name": "Bottled Water",
+      "modifier_groups": [],
+      "price": 1.5,
+      "price_english": "one dollar and fifty cents"
+    },
+    {
+      "item_id": "639NMB25WJFQ2",
+      "item_name": "Can Soda",
+      "modifier_groups": [],
+      "price": 1.75,
+      "price_english": "one dollar and seventy-five cents"
+    },
+    {
+      "item_id": "9TX9TWJ45KS4W",
+      "item_name": "3 pcs Hot Chicken Tenders",
+      "modifier_groups": ["combo"],
+      "price": 9.1,
+      "price_english": "nine dollars and ten cents"
+    },
+    {
+      "item_id": "T25S68XJM5SPM",
+      "item_name": "3 pcs Chicken Tender",
+      "modifier_groups": ["combo"],
+      "price": 8.1,
+      "price_english": "eight dollars and ten cents"
+    },
+    {
+      "item_id": "NTTH3BMS6XSDJ",
+      "item_name": "Cajun Fries",
+      "modifier_groups": [],
+      "price": 5.1,
+      "price_english": "five dollars and ten cents"
+    },
+    {
+      "item_id": "ZK3AK27KT58VR",
+      "item_name": "Onion Rings",
+      "modifier_groups": [],
+      "price": 6.1,
+      "price_english": "six dollars and ten cents"
+    },
+    {
+      "item_id": "6WV5V5ADK8W24",
+      "item_name": "Cheese Fries",
+      "modifier_groups": [],
+      "price": 7.1,
+      "price_english": "seven dollars and ten cents"
+    },
+    {
+      "item_id": "XYZ2G6SEWMM68",
+      "item_name": "French Fries",
+      "modifier_groups": [],
+      "price": 5.1,
+      "price_english": "five dollars and ten cents"
+    },
+    {
+      "item_id": "D1WE73T7JDV64",
+      "item_name": "Philly Cheesesteak Fries",
+      "modifier_groups": [],
+      "price": 11.1,
+      "price_english": "eleven dollars and ten cents"
+    },
+    {
+      "item_id": "EXWM75GRC0WD4",
+      "item_name": "Philly Chiken Fries",
+      "modifier_groups": ["meat"],
+      "price": 10.1,
+      "price_english": "ten dollars and ten cents"
+    },
+    {
+      "item_id": "E0C31KZ52WJ3G",
+      "item_name": "Loaded Nashville Fries",
+      "modifier_groups": ["fries_add_on"],
+      "price": 10.1,
+      "price_english": "ten dollars and ten cents"
+    },
+    {
+      "item_id": "SHT3Q9X88T7T0",
+      "item_name": "Loaded House Fries",
+      "modifier_groups": ["fries_add_on"],
+      "price": 11.1,
+      "price_english": "eleven dollars and ten cents"
+    },
+    {
+      "item_id": "GCMSQZKWNE75G",
+      "item_name": "Loaded Zinger Fries",
+      "modifier_groups": ["fries_add_on"],
+      "price": 10.1,
+      "price_english": "ten dollars and ten cents"
+    },
+    {
+      "item_id": "HH64PKWJAS08A",
+      "item_name": "Loaded Spicy Bang Bang Fries",
+      "modifier_groups": ["substitution", "fries_add_on"],
+      "price": 10.1,
+      "price_english": "ten dollars and ten cents"
+    },
+    {
+      "item_id": "RW2QF1JC201YE",
+      "item_name": "Loaded Shwarma Fries",
+      "modifier_groups": ["substitution", "fries_add_on"],
+      "price": 9.1,
+      "price_english": "nine dollars and ten cents"
+    },
+    {
+      "item_id": "2EMJZMSQJWK3E",
+      "item_name": "Cheetos Cheese Fries",
+      "modifier_groups": [],
+      "price": 8.1,
+      "price_english": "eight dollars and ten cents"
+    },
+    {
+      "item_id": "JK0X69S6NQQCY",
+      "item_name": "Philly Cheesesteak Chicken",
+      "modifier_groups": ["add_ons", "combo", "philly", "fries_add_on"],
+      "price": 9.1,
+      "price_english": "nine dollars and ten cents"
+    },
+    {
+      "item_id": "DFEXH5D26CAJ0",
+      "item_name": "Philly Cheesesteak Beef",
+      "modifier_groups": ["add_ons", "combo", "philly", "fries_add_on"],
+      "price": 10.1,
+      "price_english": "ten dollars and ten cents"
+    },
+    {
+      "item_id": "AZQ5R0JKFNTS2",
+      "item_name": "Classic Crispy Chicken",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "cook_level", "combo"],
+      "price": 9.1,
+      "price_english": "nine dollars and ten cents"
+    },
+    {
+      "item_id": "QNN1RB5NHDETA",
+      "item_name": "Hamburger",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "cook_level", "combo"],
+      "price": 8.1,
+      "price_english": "eight dollars and ten cents"
+    },
+    {
+      "item_id": "P46S6GE705EB4",
+      "item_name": "Dallas Hot Chicken",
+      "modifier_groups": [
+        "burgers_sandwich",
+        "add_ons",
+        "substitution",
+        "cook_level",
+        "combo"
+      ],
+      "price": 10.1,
+      "price_english": "ten dollars and ten cents"
+    },
+    {
+      "item_id": "2Y818TK8WPADA",
+      "item_name": "Double Down Cheezy Zinger",
+      "modifier_groups": [
+        "burgers_sandwich",
+        "add_ons",
+        "substitution",
+        "combo"
+      ],
+      "price": 13.1,
+      "price_english": "thirteen dollars and ten cents"
+    },
+    {
+      "item_id": "3TF12CTSN0BRW",
+      "item_name": "Cayenne Chicken",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "cook_level", "combo"],
+      "price": 9.1,
+      "price_english": "nine dollars and ten cents"
+    },
+    {
+      "item_id": "TTBGP5RQ2Z1PE",
+      "item_name": "Cheesey Zinger",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "cook_level", "combo"],
+      "price": 11.1,
+      "price_english": "eleven dollars and ten cents"
+    },
+    {
+      "item_id": "M21TCYT75XBER",
+      "item_name": "Nashville Chicken",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "cook_level", "combo"],
+      "price": 9.1,
+      "price_english": "nine dollars and ten cents"
+    },
+    {
+      "item_id": "HH9HS2HQGTHTR",
+      "item_name": "The Copycat",
+      "modifier_groups": [
+        "burgers_sandwich",
+        "add_ons",
+        "substitution",
+        "cook_level",
+        "combo"
+      ],
+      "price": 9.1,
+      "price_english": "nine dollars and ten cents"
+    },
+    {
+      "item_id": "3BNJ637VG0VY6",
+      "item_name": "Zinger Burger",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "cook_level", "combo"],
+      "price": 9.1,
+      "price_english": "nine dollars and ten cents"
+    },
+    {
+      "item_id": "XGCZVBVPDCMSE",
+      "item_name": "Jalapeno Burger",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "cook_level", "combo"],
+      "price": 10.1,
+      "price_english": "ten dollars and ten cents"
+    },
+    {
+      "item_id": "CC2J1JKW2Y7CY",
+      "item_name": "Bacon Cheeseburger",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "cook_level", "combo"],
+      "price": 10.1,
+      "price_english": "ten dollars and ten cents"
+    },
+    {
+      "item_id": "CBSHTVP84C61E",
+      "item_name": "Spicy Bang-Bang",
+      "modifier_groups": [
+        "burgers_sandwich",
+        "add_ons",
+        "substitution",
+        "cook_level",
+        "combo"
+      ],
+      "price": 10.1,
+      "price_english": "ten dollars and ten cents"
+    },
+    {
+      "item_id": "0KM1W4XX80S0W",
+      "item_name": "Spicy Crispy Chicken Burger",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "combo"],
+      "price": 9.1,
+      "price_english": "nine dollars and ten cents"
+    },
+    {
+      "item_id": "QVEH70TY6TB3P",
+      "item_name": "Fatty Patty",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "cook_level", "combo"],
+      "price": 11.1,
+      "price_english": "eleven dollars and ten cents"
+    },
+    {
+      "item_id": "8ACVS2JKS9DAA",
+      "item_name": "Bacon BBQ Burger",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "cook_level", "combo"],
+      "price": 10.1,
+      "price_english": "ten dollars and ten cents"
+    },
+    {
+      "item_id": "P6KJDT5QH44NJ",
+      "item_name": "Swiss N Mushroom Burger",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "cook_level", "combo"],
+      "price": 10.1,
+      "price_english": "ten dollars and ten cents"
+    },
+    {
+      "item_id": "3QDTGJPE8GG40",
+      "item_name": "Double Cheeseburger",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "cook_level", "combo"],
+      "price": 12.1,
+      "price_english": "twelve dollars and ten cents"
+    },
+    {
+      "item_id": "NHFBR256X171T",
+      "item_name": "Grilled Chicken",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "combo"],
+      "price": 9.1,
+      "price_english": "nine dollars and ten cents"
+    },
+    {
+      "item_id": "QQ7A13PV63VAT",
+      "item_name": "Crispy Chicken",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "combo"],
+      "price": 9.1,
+      "price_english": "nine dollars and ten cents"
+    },
+    {
+      "item_id": "ESP8JW9EFG7NG",
+      "item_name": "Texas Toast",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "cook_level", "combo"],
+      "price": 11.1,
+      "price_english": "eleven dollars and ten cents"
+    },
+    {
+      "item_id": "74R9FPRJ678E6",
+      "item_name": "Cheeseburger",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "cook_level", "combo"],
+      "price": 9.1,
+      "price_english": "nine dollars and ten cents"
+    },
+    {
+      "item_id": "YAT5TZTPWPT7R",
+      "item_name": "Lime N Dime House Burger",
+      "modifier_groups": ["burgers_sandwich", "add_ons", "cook_level", "combo"],
+      "price": 11.1,
+      "price_english": "eleven dollars and ten cents"
+    }
+  ]
+}

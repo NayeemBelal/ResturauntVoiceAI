@@ -1,0 +1,5 @@
+Whenever the user adds a combo to a burger, that should default to the cajun combo, and not the plain combo, unless the user specifies that they want the plain one (No need to mention it though).  
+Fries and drink means combo, not a seperate item for fries, and a seperate item for the drink. 
+Double patty means one extra patty. Triple patty means two extra patties, and so one
+If users ask for extra sauce, make sure you know which sauce they want specifically, and also make sure you use the menu item and not the mod for sauces so they get charged
+Do not ask about the cook level on burgers. that is not a required modifier. The only thing you should ask for is combo, nothing else. No extra toppings or anything
