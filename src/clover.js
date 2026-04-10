@@ -213,10 +213,23 @@ async function getBusinessHours(merchantId) {
     { headers: cloverHeaders() }
   );
 
-  const hoursData = res.ok ? await res.json() : {};
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Clover opening hours error ${res.status}: ${text}`);
+  }
+
+  const hoursData = await res.json();
+  const hourSets = Array.isArray(hoursData.elements) ? hoursData.elements : [];
+  if (hourSets.length === 0) {
+    return {
+      hours: null,
+      unavailable: true,
+      message: 'Business hours are not configured in Clover right now.',
+    };
+  }
 
   const dayNames = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-  const hoursSet = hoursData.elements?.[0] ?? {};
+  const hoursSet = hourSets[0] ?? {};
   const hours = {};
   for (const day of dayNames) {
     const slots = hoursSet[day] ?? [];
@@ -225,7 +238,7 @@ async function getBusinessHours(merchantId) {
       : slots.map(s => `${minsToTime(s.start)} - ${minsToTime(s.end)}`).join(', ');
   }
 
-  return { hours };
+  return { hours, unavailable: false };
 }
 
 module.exports = { verifyItems, createOrder, markOrderPaid, printTicket, getBusinessAddress, getBusinessHours };

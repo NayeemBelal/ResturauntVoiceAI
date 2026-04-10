@@ -4,7 +4,7 @@ const { getSecrets } = require('./secrets');
 const ULTRAVOX_API_URL = 'https://api.ultravox.ai/api/calls';
 
 function buildCallConfig(callerPhone, merchantId, callContext = {}) {
-  const { serverUrl, transferPhoneNumber } = getSecrets();
+  const { serverUrl } = getSecrets();
 
   return {
     systemPrompt: buildSystemPrompt(callContext),
@@ -35,9 +35,14 @@ function buildCallConfig(callerPhone, merchantId, callContext = {}) {
         },
       },
       {
-        toolName: 'coldTransfer',
-        parameterOverrides: { target: transferPhoneNumber },
-        descriptionOverride: 'Transfer the call to a human staff member. Use this if the customer asks to speak to a person or if you cannot help them.',
+        temporaryTool: {
+          modelToolName: 'transferCall',
+          description: 'Transfer the live call to a human staff member. Use this if the customer asks to speak to a person or if you cannot help them. Tell the customer you are connecting them, then call this tool.',
+          http: {
+            baseUrlPattern: `${serverUrl}/tool/transfer-call/${encodeURIComponent(callerPhone)}`,
+            httpMethod: 'POST',
+          },
+        },
       },
       {
         temporaryTool: {

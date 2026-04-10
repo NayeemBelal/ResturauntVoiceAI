@@ -25,7 +25,7 @@ function getStripe() {
   return new Stripe(getSecrets().stripeSecretKey);
 }
 
-// In-memory call state: callerPhone → { restaurantId, posMerchantId, conversationId, customerId, customerFirstName, customerLastName, cart }
+// In-memory call state: callerPhone → { restaurantId, posMerchantId, conversationId, customerId, customerFirstName, customerLastName, callSid, calledNumber, cart }
 const activeCalls = new Map();
 
 function normalizeNamePart(value) {
@@ -67,6 +67,28 @@ function findCartLineIndex(cart, item) {
 function parseResumeCart(currentCart) {
   if (!Array.isArray(currentCart)) return [];
   return currentCart.map(normalizeCartItem);
+}
+
+async function transferLiveCall(callSid, destinationNumber, fromNumber) {
+  const { telnyxApiKey } = getSecrets();
+  const response = await fetch(`https://api.telnyx.com/v2/calls/${encodeURIComponent(callSid)}/actions/transfer`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${telnyxApiKey}`,
+    },
+    body: JSON.stringify({
+      to: destinationNumber,
+      from: fromNumber,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Telnyx transfer failed ${response.status}: ${errorText}`);
+  }
+
+  return response.json();
 }
 
 // Stripe webhook must receive the raw body — register BEFORE json/urlencoded parsers
@@ -135,6 +157,7 @@ app.get('/', (req, res) => {
 app.post('/incoming', async (req, res) => {
   const callerPhone = req.body.From || req.body.from;
   const calledNumber = req.body.To || req.body.to;
+  const callSid = req.body.CallSid || req.body.call_sid || req.body.callSid;
   console.log('Incoming call from:', callerPhone, 'to:', calledNumber);
 
   try {
@@ -153,6 +176,8 @@ app.post('/incoming', async (req, res) => {
       customerId: customer.id,
       customerFirstName: normalizeNamePart(customer.first_name),
       customerLastName: normalizeNamePart(customer.last_name),
+      callSid,
+      calledNumber,
       cart: resumeCart,
     });
 
@@ -213,6 +238,32 @@ app.post('/tool/customer-name/:callerPhone', async (req, res) => {
   } catch (err) {
     console.error('saveCustomerName error:', err.message);
     res.status(500).json({ result: 'Could not save the customer name. Please try again.' });
+  }
+});
+
+app.post('/tool/transfer-call/:callerPhone', async (req, res) => {
+  const callerPhone = decodeURIComponent(req.params.callerPhone);
+  const callContext = activeCalls.get(callerPhone);
+
+  if (!callContext) {
+    return res.status(500).json({ result: 'Call context not found. Please try again.' });
+  }
+
+  const { transferPhoneNumber } = getSecrets();
+  if (!transferPhoneNumber) {
+    return res.status(500).json({ result: 'Transfer destination is not configured.' });
+  }
+
+  if (!callContext.callSid) {
+    return res.status(500).json({ result: 'Live call identifier is missing, so transfer is unavailable.' });
+  }
+
+  try {
+    await transferLiveCall(callContext.callSid, transferPhoneNumber, callContext.calledNumber || getSecrets().telnyxPhoneNumber);
+    res.json({ result: 'Transfer started successfully. Let the customer know they are being connected now.' });
+  } catch (err) {
+    console.error('transferCall error:', err.message);
+    res.status(500).json({ result: 'Could not complete the transfer right now. Please apologize and offer to continue helping.' });
   }
 });
 
