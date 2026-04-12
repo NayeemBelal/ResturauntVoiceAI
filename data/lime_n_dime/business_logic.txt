@@ -1,4 +1,5 @@
-Whenever the user adds a combo to a burger, that should default to the cajun combo, and not the plain combo, unless the user specifies that they want the plain one (No need to mention it though).  
+Whenever the user adds a combo to a burger, that should default to the cajun combo, and not the plain combo, unless the user specifies that they want the plain one (No need to mention it though). When you are reading back the item with a combo to the user, you dont have to say "combo with fries and a drink." The term combo suffices.
+Only burgers get combos, no other type of menu item. So only ask if the user wants a combo when the menu item is a burger.
 Fries and drink means combo, not a seperate item for fries, and a seperate item for the drink. 
 Double patty means one extra patty. Triple patty means two extra patties, and so one
 If users ask for extra sauce, make sure you know which sauce they want specifically, and also make sure you use the menu item and not the mod for sauces so they get charged

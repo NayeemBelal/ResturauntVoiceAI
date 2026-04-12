@@ -69,6 +69,34 @@ function parseResumeCart(currentCart) {
   return currentCart.map(normalizeCartItem);
 }
 
+function formatCartLine(line) {
+  const modifierNames = (line.modifiers ?? []).map(mod => mod.name).filter(Boolean);
+  const displayName = modifierNames.length > 0
+    ? `${line.name} (${modifierNames.join(', ')})`
+    : line.name;
+  const unitPriceCents = line.price_cents + (line.modifiers ?? []).reduce((sum, mod) => sum + mod.price_cents, 0);
+  return {
+    itemName: line.name,
+    displayName,
+    quantity: line.quantity,
+    modifiers: modifierNames,
+    unitPriceCents: unitPriceCents,
+    lineTotalCents: unitPriceCents * line.quantity,
+  };
+}
+
+function buildCartSnapshot(cart = []) {
+  const lines = cart.map(formatCartLine);
+  const subtotalCents = lines.reduce((sum, line) => sum + line.lineTotalCents, 0);
+  return {
+    lineCount: lines.length,
+    itemCount: lines.reduce((sum, line) => sum + line.quantity, 0),
+    subtotalCents,
+    subtotalDollars: (subtotalCents / 100).toFixed(2),
+    lines,
+  };
+}
+
 async function transferLiveCall(callSid, destinationNumber, fromNumber) {
   const { telnyxApiKey } = getSecrets();
   const response = await fetch(`https://api.telnyx.com/v2/calls/${encodeURIComponent(callSid)}/actions/transfer`, {
@@ -241,6 +269,28 @@ app.post('/tool/customer-name/:callerPhone', async (req, res) => {
   }
 });
 
+app.post('/tool/cart/get/:callerPhone', async (req, res) => {
+  const callerPhone = decodeURIComponent(req.params.callerPhone);
+  const callContext = activeCalls.get(callerPhone);
+
+  if (!callContext) {
+    return res.status(500).json({ result: 'Call context not found. Please try again.' });
+  }
+
+  const snapshot = buildCartSnapshot(callContext.cart);
+  if (snapshot.lineCount === 0) {
+    return res.json({
+      result: 'The cart is currently empty.',
+      cart: snapshot,
+    });
+  }
+
+  return res.json({
+    result: `Cart retrieved successfully. There are ${snapshot.lineCount} lines and ${snapshot.itemCount} total items.`,
+    cart: snapshot,
+  });
+});
+
 app.post('/tool/transfer-call/:callerPhone', async (req, res) => {
   const callerPhone = decodeURIComponent(req.params.callerPhone);
   const callContext = activeCalls.get(callerPhone);
@@ -296,8 +346,12 @@ app.post('/tool/cart/add/:callerPhone', async (req, res) => {
 
     callContext.cart = cart;
     await updateCart(callContext.conversationId, cart);
-
-    res.json({ result: `Added to cart. Current items: ${cart.length}.` });
+    const snapshot = buildCartSnapshot(cart);
+    const addedLine = formatCartLine(normalizedItem);
+    res.json({
+      result: `Added ${addedLine.displayName}. Cart now has ${snapshot.lineCount} lines and ${snapshot.itemCount} total items.`,
+      cart: snapshot,
+    });
   } catch (err) {
     console.error('addToCart error:', err.message);
     res.status(500).json({ result: 'Could not update the cart. Please try again.' });
@@ -334,8 +388,13 @@ app.post('/tool/cart/remove/:callerPhone', async (req, res) => {
 
     callContext.cart = cart;
     await updateCart(callContext.conversationId, cart);
-
-    res.json({ result: 'Updated cart.' });
+    const snapshot = buildCartSnapshot(cart);
+    res.json({
+      result: snapshot.lineCount === 0
+        ? 'Updated cart. The cart is now empty.'
+        : `Updated cart. Cart now has ${snapshot.lineCount} lines and ${snapshot.itemCount} total items.`,
+      cart: snapshot,
+    });
   } catch (err) {
     console.error('removeFromCart error:', err.message);
     res.status(500).json({ result: 'Could not update the cart. Please try again.' });
@@ -353,7 +412,10 @@ app.post('/tool/cart/clear/:callerPhone', async (req, res) => {
   try {
     callContext.cart = [];
     await updateCart(callContext.conversationId, []);
-    res.json({ result: 'Cart cleared. You can start a new order now.' });
+    res.json({
+      result: 'Cart cleared. You can start a new order now.',
+      cart: buildCartSnapshot([]),
+    });
   } catch (err) {
     console.error('clearCart error:', err.message);
     res.status(500).json({ result: 'Could not clear the cart. Please try again.' });

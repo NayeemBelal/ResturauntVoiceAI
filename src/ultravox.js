@@ -46,6 +46,16 @@ function buildCallConfig(callerPhone, merchantId, callContext = {}) {
       },
       {
         temporaryTool: {
+          modelToolName: 'getCart',
+          description: 'Get the current saved cart from the server. Use this when the customer asks for a recap, when you need to confirm what is already in the order, and always right before the final checkout recap and sendCheckoutLink.',
+          http: {
+            baseUrlPattern: `${serverUrl}/tool/cart/get/${encodeURIComponent(callerPhone)}`,
+            httpMethod: 'POST',
+          },
+        },
+      },
+      {
+        temporaryTool: {
           modelToolName: 'addToCart',
           description: 'Add an item to the cart or increase its quantity. Call this every time the customer confirms they want an item, after required modifiers are finalized.',
           dynamicParameters: [
