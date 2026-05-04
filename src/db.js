@@ -9,7 +9,7 @@ function getSupabase() {
 async function getRestaurantByVoiceNumber(voiceNumber) {
   const { data, error } = await getSupabase()
     .from('restaurants')
-    .select('id, name, pos_merchant_id')
+    .select('id, name, pos_merchant_id, ai_greeting, ai_voice_id, forwarding_number, description, address, website')
     .eq('voice_call_number', voiceNumber)
     .single();
 
@@ -112,6 +112,7 @@ async function createOrder(restaurantId, customerId, conversationId, stripeSessi
       modifications: (item.modifiers ?? []).map(m => ({ id: m.mod_id, name: m.name, price_cents: m.price_cents })),
       modifiers_total: modsTotalDollars,
       item_total: parseFloat(itemTotal.toFixed(2)),
+      special_notes: item.note ?? null,
     };
   });
 
@@ -151,6 +152,80 @@ async function updateOrderPlaced(orderId, posOrderId) {
   if (error) throw new Error(`Order update failed: ${error.message}`);
 }
 
+// Bug B — cancel any prior open orders within the same conversation before creating a new checkout session.
+// Scoped strictly to conversation_id so other calls are never affected.
+async function cancelOpenOrdersForConversation(conversationId) {
+  const { error } = await getSupabase()
+    .from('orders')
+    .update({ status: 'failed' })
+    .eq('conversation_id', conversationId)
+    .eq('status', 'open');
+
+  if (error) throw new Error(`Cancel open orders failed: ${error.message}`);
+}
+
+// Bug C — recover order from DB when in-memory pendingOrders map is gone (e.g. server restart).
+async function getOrderByStripeSessionId(stripeSessionId) {
+  const { data, error } = await getSupabase()
+    .from('orders')
+    .select('id, conversation_id, restaurant_id, customer_id, status')
+    .eq('stripe_session_id', stripeSessionId)
+    .maybeSingle();
+
+  if (error) throw new Error(`Order lookup by session failed: ${error.message}`);
+  return data;
+}
+
+// Bug A + call_outcome — write duration and outcome to conversations table.
+async function updateConversationOutcome(conversationId, { durationSeconds, callOutcome, completedAt } = {}) {
+  const updates = {};
+  if (durationSeconds != null) updates.duration_seconds = durationSeconds;
+  if (callOutcome != null) updates.call_outcome = callOutcome;
+  if (completedAt != null) updates.completed_at = completedAt;
+  if (Object.keys(updates).length === 0) return;
+
+  const { error } = await getSupabase()
+    .from('conversations')
+    .update(updates)
+    .eq('id', conversationId);
+
+  if (error) throw new Error(`Conversation outcome update failed: ${error.message}`);
+}
+
+// Bug A — on hangup, set call_outcome to 'no-outcome' only if not already set by a more specific event.
+async function setNoOutcomeIfNull(conversationId) {
+  const { error } = await getSupabase()
+    .from('conversations')
+    .update({ call_outcome: 'no-outcome' })
+    .eq('id', conversationId)
+    .is('call_outcome', null);
+
+  if (error) throw new Error(`setNoOutcomeIfNull failed: ${error.message}`);
+}
+
+async function getRestaurantFAQs(restaurantId) {
+  const { data, error } = await getSupabase()
+    .from('faqs')
+    .select('question, answer, category')
+    .eq('restaurant_id', restaurantId)
+    .eq('active', true)
+    .order('sort_order', { ascending: true });
+
+  if (error) throw new Error(`FAQ fetch failed: ${error.message}`);
+  return data ?? [];
+}
+
+async function getUpsellRules(restaurantId) {
+  const { data, error } = await getSupabase()
+    .from('upsell_rules')
+    .select('trigger_item_name, suggested_item_name, message')
+    .eq('restaurant_id', restaurantId)
+    .eq('active', true);
+
+  if (error) throw new Error(`Upsell rules fetch failed: ${error.message}`);
+  return data ?? [];
+}
+
 async function completeConversation(conversationId) {
   const { error } = await getSupabase()
     .from('conversations')
@@ -170,5 +245,11 @@ module.exports = {
   updateCart,
   createOrder,
   updateOrderPlaced,
+  cancelOpenOrdersForConversation,
+  getOrderByStripeSessionId,
+  updateConversationOutcome,
+  setNoOutcomeIfNull,
   completeConversation,
+  getRestaurantFAQs,
+  getUpsellRules,
 };

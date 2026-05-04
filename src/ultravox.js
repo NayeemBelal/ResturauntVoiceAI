@@ -1,15 +1,16 @@
-const { buildSystemPrompt } = require('./prompt');
+const { buildSystemPrompt, buildDemoSystemPrompt } = require('./prompt');
 const { getSecrets } = require('./secrets');
 
 const ULTRAVOX_API_URL = 'https://api.ultravox.ai/api/calls';
 
 function buildCallConfig(callerPhone, merchantId, callContext = {}) {
   const { serverUrl } = getSecrets();
+  const { aiVoiceId } = callContext;
 
   return {
     systemPrompt: buildSystemPrompt(callContext),
     model: 'ultravox-v0.7',
-    voice: 'Mark',
+    voice: aiVoiceId || 'Mark',
     medium: { telnyx: {} },
     firstSpeakerSettings: { agent: {} },
     selectedTools: [
@@ -57,7 +58,7 @@ function buildCallConfig(callerPhone, merchantId, callContext = {}) {
       {
         temporaryTool: {
           modelToolName: 'addToCart',
-          description: 'Add an item to the cart or increase its quantity. Call this every time the customer confirms they want an item, after required modifiers are finalized.',
+          description: 'Add an item to the cart or increase its quantity. Call this every time the customer confirms they want an item, after required modifiers are finalized. If the customer requests a customization that is not available as a modifier option, capture it in the note field instead.',
           dynamicParameters: [
             {
               name: 'item',
@@ -69,16 +70,16 @@ function buildCallConfig(callerPhone, merchantId, callContext = {}) {
                   name: { type: 'string' },
                   quantity: { type: 'integer' },
                   price_cents: { type: 'integer', description: 'Base price only, no modifiers' },
+                  note: { type: 'string', description: 'Free-text special instructions (e.g., light sauce, no MSG). Use this when the customer requests a customization that is not available as a modifier option.' },
                   modifiers: {
                     type: 'array',
+                    description: 'Modifier IDs selected by the customer. Use mod_id values from the menu.',
                     items: {
                       type: 'object',
                       properties: {
                         mod_id: { type: 'string' },
-                        name: { type: 'string' },
-                        price_cents: { type: 'integer' },
                       },
-                      required: ['mod_id', 'name', 'price_cents'],
+                      required: ['mod_id'],
                     },
                   },
                 },
@@ -96,7 +97,7 @@ function buildCallConfig(callerPhone, merchantId, callContext = {}) {
       {
         temporaryTool: {
           modelToolName: 'removeFromCart',
-          description: 'Remove an item from the cart or reduce its quantity. Use the exact modifier IDs for the cart line you want to change.',
+          description: 'Remove an item from the cart or reduce its quantity. Use the exact modifier IDs and note for the cart line you want to change.',
           dynamicParameters: [
             {
               name: 'item',
@@ -117,6 +118,7 @@ function buildCallConfig(callerPhone, merchantId, callContext = {}) {
                       required: ['mod_id'],
                     },
                   },
+                  note: { type: 'string', description: 'The note on the exact cart line to remove. Must match exactly.' },
                 },
                 required: ['item_id', 'quantity', 'modifiers'],
               },
@@ -205,4 +207,130 @@ async function createUltravoxCall(callerPhone, merchantId, callContext = {}) {
   return data.joinUrl;
 }
 
-module.exports = { createUltravoxCall };
+function buildDemoCallConfig(callerPhone) {
+  const { serverUrl } = getSecrets();
+
+  return {
+    systemPrompt: buildDemoSystemPrompt(),
+    model: 'ultravox-v0.7',
+    voice: 'Mark',
+    medium: { telnyx: {} },
+    firstSpeakerSettings: { agent: {} },
+    selectedTools: [
+      { toolName: 'hangUp' },
+      {
+        temporaryTool: {
+          modelToolName: 'getCart',
+          description: 'Get the current saved cart from the server. Use this when the customer asks for a recap, when you need to confirm what is already in the order, and always right before the final checkout recap and sendCheckoutLink.',
+          http: {
+            baseUrlPattern: `${serverUrl}/tool/cart/get/${encodeURIComponent(callerPhone)}`,
+            httpMethod: 'POST',
+          },
+        },
+      },
+      {
+        temporaryTool: {
+          modelToolName: 'addToCart',
+          description: 'Add an item to the cart or increase its quantity. Call this every time the customer confirms they want an item.',
+          dynamicParameters: [
+            {
+              name: 'item',
+              location: 'PARAMETER_LOCATION_BODY',
+              schema: {
+                type: 'object',
+                properties: {
+                  item_id: { type: 'string' },
+                  name: { type: 'string' },
+                  quantity: { type: 'integer' },
+                  price_cents: { type: 'integer', description: 'Base price in cents, no modifiers' },
+                  modifiers: {
+                    type: 'array',
+                    items: { type: 'object', properties: { mod_id: { type: 'string' } }, required: ['mod_id'] },
+                  },
+                },
+                required: ['item_id', 'name', 'quantity', 'price_cents'],
+              },
+              required: true,
+            },
+          ],
+          http: {
+            baseUrlPattern: `${serverUrl}/tool/cart/add/${encodeURIComponent(callerPhone)}`,
+            httpMethod: 'POST',
+          },
+        },
+      },
+      {
+        temporaryTool: {
+          modelToolName: 'removeFromCart',
+          description: 'Remove an item from the cart or reduce its quantity.',
+          dynamicParameters: [
+            {
+              name: 'item',
+              location: 'PARAMETER_LOCATION_BODY',
+              schema: {
+                type: 'object',
+                properties: {
+                  item_id: { type: 'string' },
+                  quantity: { type: 'integer' },
+                  modifiers: {
+                    type: 'array',
+                    items: { type: 'object', properties: { mod_id: { type: 'string' } }, required: ['mod_id'] },
+                  },
+                },
+                required: ['item_id', 'quantity', 'modifiers'],
+              },
+              required: true,
+            },
+          ],
+          http: {
+            baseUrlPattern: `${serverUrl}/tool/cart/remove/${encodeURIComponent(callerPhone)}`,
+            httpMethod: 'POST',
+          },
+        },
+      },
+      {
+        temporaryTool: {
+          modelToolName: 'clearCart',
+          description: 'Clear the entire saved cart. Use this if a caller wants to start over from scratch.',
+          http: {
+            baseUrlPattern: `${serverUrl}/tool/cart/clear/${encodeURIComponent(callerPhone)}`,
+            httpMethod: 'POST',
+          },
+        },
+      },
+      {
+        temporaryTool: {
+          modelToolName: 'sendCheckoutLink',
+          description: 'Send the customer a checkout link via SMS so they can review and complete their order. Call this when the customer confirms they are done ordering and ready to pay. Call getCart first to confirm the order, then call this. After it returns successfully, tell the customer once that the link was sent, then hang up.',
+          http: {
+            baseUrlPattern: `${serverUrl}/tool/demo-send-checkout/${encodeURIComponent(callerPhone)}`,
+            httpMethod: 'POST',
+          },
+        },
+      },
+    ],
+  };
+}
+
+async function createDemoUltravoxCall(callerPhone) {
+  const { ultravoxApiKey } = getSecrets();
+
+  const response = await fetch(ULTRAVOX_API_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-API-Key': ultravoxApiKey,
+    },
+    body: JSON.stringify(buildDemoCallConfig(callerPhone)),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Ultravox API error ${response.status}: ${error}`);
+  }
+
+  const data = await response.json();
+  return data.joinUrl;
+}
+
+module.exports = { createUltravoxCall, createDemoUltravoxCall };

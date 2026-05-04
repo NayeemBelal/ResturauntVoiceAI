@@ -106,10 +106,8 @@ async function loadSecrets() {
     cloverApiKey,
     supabaseServiceRoleKey,
     // Env var only
-    supabaseUrl:         process.env.SUPABASE_URL          ?? '',
-    telnyxPhoneNumber:   process.env.TELNYX_PHONE_NUMBER   ?? '',
-    transferPhoneNumber: process.env.TRANSFER_PHONE_NUMBER ?? '',
-    serverUrl:           process.env.SERVER_URL            ?? '',
+    supabaseUrl: process.env.SUPABASE_URL ?? '',
+    serverUrl:   process.env.SERVER_URL   ?? '',
   };
 
   return _secrets;

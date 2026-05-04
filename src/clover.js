@@ -53,11 +53,13 @@ async function verifyItems(items, merchantId) {
       }
     }
 
-    // Verify modifiers and correct prices
+    // Verify modifiers and correct prices; demote unrecognized mods to notes
     const verifiedModifiers = [];
+    const fallbackNoteNames = [];
     for (const mod of (item.modifiers ?? [])) {
       if (mod.mod_id && !(mod.mod_id in cloverModPrices)) {
-        return { valid: false, error: `Sorry, the modifier "${mod.name}" is no longer available. Please update your order.` };
+        if (mod.name) fallbackNoteNames.push(mod.name);
+        continue;
       }
       verifiedModifiers.push({
         ...mod,
@@ -65,10 +67,13 @@ async function verifyItems(items, merchantId) {
       });
     }
 
+    const combinedNote = [item.note, ...fallbackNoteNames].filter(Boolean).join(', ') || null;
+
     verifiedItems.push({
       ...item,
       price_cents: cloverItem.price ?? item.price_cents,
       modifiers: verifiedModifiers,
+      note: combinedNote,
     });
   }
 
@@ -82,7 +87,8 @@ async function createOrder(items, merchantId) {
   const lineItems = items.map(item => {
     const modTotal = (item.modifiers ?? []).reduce((sum, m) => sum + m.price_cents, 0);
     const unitPrice = item.price_cents + modTotal;
-    const note = (item.modifiers ?? []).map(m => m.name).filter(Boolean).join(', ');
+    const modNames = (item.modifiers ?? []).map(m => m.name).filter(Boolean).join(', ');
+    const note = [modNames, item.note].filter(Boolean).join(' — ');
 
     return {
       item: { id: item.item_id },
