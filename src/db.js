@@ -177,11 +177,12 @@ async function getOrderByStripeSessionId(stripeSessionId) {
 }
 
 // Bug A + call_outcome — write duration and outcome to conversations table.
-async function updateConversationOutcome(conversationId, { durationSeconds, callOutcome, completedAt } = {}) {
+async function updateConversationOutcome(conversationId, { durationSeconds, callOutcome, completedAt, callEndedAt } = {}) {
   const updates = {};
   if (durationSeconds != null) updates.duration_seconds = durationSeconds;
   if (callOutcome != null) updates.call_outcome = callOutcome;
   if (completedAt != null) updates.completed_at = completedAt;
+  if (callEndedAt != null) updates.call_ended_at = callEndedAt;
   if (Object.keys(updates).length === 0) return;
 
   const { error } = await getSupabase()
@@ -190,6 +191,27 @@ async function updateConversationOutcome(conversationId, { durationSeconds, call
     .eq('id', conversationId);
 
   if (error) throw new Error(`Conversation outcome update failed: ${error.message}`);
+}
+
+// Looks up the most recent open voice conversation for a caller by phone number.
+// Used by the hangup handler so it doesn't depend on the in-memory activeCalls Map.
+async function getOpenVoiceConversationByPhone(callerPhone) {
+  const cutoff = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString();
+  console.log('[db] getOpenVoiceConversationByPhone — phone:', callerPhone, '| cutoff:', cutoff);
+  const { data, error } = await getSupabase()
+    .from('conversations')
+    .select('id, customers!inner(phone_number)')
+    .eq('channel', 'voice')
+    .is('call_ended_at', null)
+    .eq('customers.phone_number', callerPhone)
+    .gt('created_at', cutoff)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  console.log('[db] getOpenVoiceConversationByPhone result — data:', JSON.stringify(data), '| error:', error?.message ?? null);
+  if (error) throw new Error(`Open voice conversation lookup failed: ${error.message}`);
+  return data;
 }
 
 // Bug A — on hangup, set call_outcome to 'no-outcome' only if not already set by a more specific event.
@@ -247,6 +269,7 @@ module.exports = {
   updateOrderPlaced,
   cancelOpenOrdersForConversation,
   getOrderByStripeSessionId,
+  getOpenVoiceConversationByPhone,
   updateConversationOutcome,
   setNoOutcomeIfNull,
   completeConversation,

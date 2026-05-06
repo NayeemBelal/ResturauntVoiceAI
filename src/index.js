@@ -21,6 +21,7 @@ const {
   updateCart,
   updateOrderPlaced,
   getOrderByStripeSessionId,
+  getOpenVoiceConversationByPhone,
   updateConversationOutcome,
   setNoOutcomeIfNull,
   completeConversation,
@@ -46,13 +47,26 @@ let modifierLookup = {};
 
 function buildModifierLookup(menuData) {
   const lookup = {};
-  for (const item of (menuData.items ?? [])) {
-    for (const group of (item.modifier_groups ?? [])) {
+  if (menuData.shared_modifier_groups) {
+    // Compressed format — modifiers live in shared_modifier_groups
+    for (const group of Object.values(menuData.shared_modifier_groups)) {
       for (const mod of (group.modifiers ?? [])) {
         lookup[mod.mod_id] = {
           name: mod.mod_name,
-          price_cents: mod.price_cents ?? Math.round((mod.price ?? 0) * 100),
+          price_cents: Math.round((mod.price ?? 0) * 100),
         };
+      }
+    }
+  } else {
+    // Raw format — modifiers are embedded per item
+    for (const item of (menuData.items ?? [])) {
+      for (const group of (item.modifier_groups ?? [])) {
+        for (const mod of (group.modifiers ?? [])) {
+          lookup[mod.mod_id] = {
+            name: mod.mod_name,
+            price_cents: mod.price_cents ?? Math.round((mod.price ?? 0) * 100),
+          };
+        }
       }
     }
   }
@@ -74,6 +88,8 @@ async function refreshMenu() {
     const menuData = await res.json();
     modifierLookup = buildModifierLookup(menuData);
     reloadMenu(menuData);
+    const compressed = require('./menu-compress').compressMenu(menuData);
+    fs.writeFileSync(MENU_PATH, JSON.stringify(compressed, null, 2), 'utf8');
     console.log(`[menu] Refreshed — ${menuData.items?.length ?? 0} available items`);
   } catch (err) {
     console.error('[menu] Refresh failed:', err.message);
@@ -287,44 +303,114 @@ app.get('/', (req, res) => {
   res.send('Restaurant Voice AI server is running.');
 });
 
+// TeXML statusCallback — Telnyx POSTs here when the call completes.
+// Receives CallSid, CallStatus, CallDuration (seconds), From, To.
+app.post('/call-status', express.urlencoded({ extended: false }), express.json(), async (req, res) => {
+  res.sendStatus(200);
+
+  const body = req.body ?? {};
+  const callStatus = body.CallStatus ?? body.call_status;
+  const callerPhone = body.From ?? body.from;
+  const durationSeconds = body.CallDuration != null ? parseInt(body.CallDuration, 10) : null;
+
+  console.log('[call-status] received — CallStatus:', callStatus, '| From:', callerPhone, '| CallDuration:', durationSeconds, '| full body:', JSON.stringify(body));
+
+  if (callStatus !== 'completed') return;
+
+  const mapContext = activeCalls.get(callerPhone);
+  const isDemo = mapContext?.isDemo ?? false;
+
+  console.log('[call-status] map hit:', !!mapContext, '| isDemo:', isDemo);
+
+  if (!isDemo) {
+    try {
+      let conversationId = mapContext?.conversationId;
+      if (!conversationId) {
+        console.log('[call-status] map miss — querying DB for open voice conversation, phone:', callerPhone);
+        const conv = await getOpenVoiceConversationByPhone(callerPhone);
+        console.log('[call-status] DB query result:', JSON.stringify(conv));
+        conversationId = conv?.id ?? null;
+      }
+
+      console.log('[call-status] resolved conversationId:', conversationId);
+
+      if (conversationId) {
+        const updates = { callEndedAt: new Date().toISOString() };
+        if (durationSeconds != null && !isNaN(durationSeconds)) updates.durationSeconds = durationSeconds;
+        console.log('[call-status] writing updates:', JSON.stringify(updates));
+        await updateConversationOutcome(conversationId, updates);
+        await setNoOutcomeIfNull(conversationId);
+        console.log('[call-status] DB update SUCCESS for conversationId:', conversationId);
+      } else {
+        console.warn('[call-status] WARN: no conversation found for caller:', callerPhone);
+      }
+    } catch (err) {
+      console.error('[call-status] ERROR:', err.message, err.stack);
+    }
+  }
+
+  if (mapContext) activeCalls.delete(callerPhone);
+});
+
 // Telnyx call-lifecycle events (call.hangup, etc.)
 // Configure this URL in Telnyx Dashboard → Connections → Outbound Voice Profile → Webhooks
 app.post('/telnyx/events', express.json(), async (req, res) => {
   res.sendStatus(200); // ack immediately
 
   const data = req.body?.data;
-  if (!data) return;
+  if (!data) {
+    console.log('[telnyx/events] WARN: received request with no data field. body keys:', Object.keys(req.body ?? {}));
+    return;
+  }
 
   const eventType = data.event_type;
   const payload = data.payload ?? {};
-  console.log('[telnyx/events] event_type:', eventType);
+  console.log('[telnyx/events] event_type:', eventType, '| payload keys:', Object.keys(payload));
 
   if (eventType === 'call.hangup') {
+    console.log('[telnyx/events] HANGUP full payload:', JSON.stringify(payload));
+
     const callerPhone = payload.from;
     const durationSeconds = payload.call_duration_secs ?? payload.call_duration ?? null;
-    const callContext = activeCalls.get(callerPhone);
 
-    console.log('[telnyx/events] hangup — caller:', callerPhone, 'duration:', durationSeconds, 'context found:', !!callContext);
+    console.log('[telnyx/events] hangup — callerPhone:', callerPhone, '| durationSeconds:', durationSeconds, '| activeCalls keys:', [...activeCalls.keys()]);
 
-    if (callContext?.conversationId) {
-      const { conversationId, isDemo } = callContext;
+    const mapContext = activeCalls.get(callerPhone);
+    const isDemo = mapContext?.isDemo ?? false;
 
-      if (!isDemo) {
-        try {
-          const updates = { completedAt: new Date().toISOString() };
+    console.log('[telnyx/events] map hit:', !!mapContext, '| isDemo:', isDemo, '| mapContext.conversationId:', mapContext?.conversationId ?? 'none');
+
+    if (!isDemo) {
+      try {
+        let conversationId = mapContext?.conversationId;
+        if (!conversationId) {
+          console.log('[telnyx/events] map miss — querying DB for open voice conversation for phone:', callerPhone);
+          const conv = await getOpenVoiceConversationByPhone(callerPhone);
+          console.log('[telnyx/events] DB query result:', JSON.stringify(conv));
+          conversationId = conv?.id ?? null;
+        }
+
+        console.log('[telnyx/events] resolved conversationId:', conversationId);
+
+        if (conversationId) {
+          const now = new Date().toISOString();
+          const updates = { callEndedAt: now };
           if (durationSeconds != null) updates.durationSeconds = Math.round(durationSeconds);
+          console.log('[telnyx/events] writing updates to DB:', JSON.stringify(updates));
           await updateConversationOutcome(conversationId, updates);
           await setNoOutcomeIfNull(conversationId);
-          console.log('[telnyx/events] conversation outcome updated:', conversationId);
-        } catch (err) {
-          console.error('[telnyx/events] outcome update failed:', err.message);
+          console.log('[telnyx/events] DB update SUCCESS for conversationId:', conversationId);
+        } else {
+          console.warn('[telnyx/events] WARN: no conversation found for caller:', callerPhone, '— duration not recorded');
         }
-      } else {
-        console.log('[telnyx/events] demo call ended, skipping DB update:', conversationId);
+      } catch (err) {
+        console.error('[telnyx/events] ERROR during outcome update:', err.message, err.stack);
       }
-
-      activeCalls.delete(callerPhone);
+    } else {
+      console.log('[telnyx/events] demo call ended, skipping DB update');
     }
+
+    if (mapContext) activeCalls.delete(callerPhone);
   }
 });
 
@@ -370,21 +456,37 @@ app.post('/incoming', async (req, res) => {
   }
 
   try {
+    const t0 = Date.now();
     const restaurant = await getRestaurantByVoiceNumber(calledNumber);
-    const customer = await upsertCustomer(callerPhone);
-    await completeStaleConversations(restaurant.id, customer.id);
+    console.log(`[timing] getRestaurantByVoiceNumber: ${Date.now() - t0}ms`);
 
+    const t1 = Date.now();
+    const customer = await upsertCustomer(callerPhone);
+    console.log(`[timing] upsertCustomer: ${Date.now() - t1}ms`);
+
+    const t2 = Date.now();
+    await completeStaleConversations(restaurant.id, customer.id);
+    console.log(`[timing] completeStaleConversations: ${Date.now() - t2}ms`);
+
+    const t3 = Date.now();
     const existingConversation = await getActiveConversation(restaurant.id, customer.id);
+    console.log(`[timing] getActiveConversation: ${Date.now() - t3}ms`);
+
     const resumeCart = parseResumeCart(existingConversation?.current_cart);
+
+    const t4 = Date.now();
     const conversation = existingConversation ?? await createConversation(restaurant.id, customer.id);
+    console.log(`[timing] createConversation (skipped if existing): ${Date.now() - t4}ms`);
 
     const restaurantConfig = getRestaurantConfig(calledNumber);
     const transferPhoneNumber = restaurant.forwarding_number || restaurantConfig?.transfer_phone_number || '';
 
+    const t5 = Date.now();
     const [faqs, upsellRules] = await Promise.all([
       getRestaurantFAQs(restaurant.id),
       getUpsellRules(restaurant.id),
     ]);
+    console.log(`[timing] getRestaurantFAQs + getUpsellRules: ${Date.now() - t5}ms`);
 
     activeCalls.set(callerPhone, {
       restaurantId: restaurant.id,
@@ -397,10 +499,12 @@ app.post('/incoming', async (req, res) => {
       calledNumber,
       transferPhoneNumber,
       cart: resumeCart,
+      resumedFromPrior: !!existingConversation && resumeCart.length > 0,
     });
 
     console.log(`Call context set — restaurant: ${restaurant.name}, conversation: ${conversation.id}, resumed cart items: ${resumeCart.length}, faqs: ${faqs.length}, upsells: ${upsellRules.length}`);
 
+    const t6 = Date.now();
     const joinUrl = await createUltravoxCall(callerPhone, restaurant.pos_merchant_id, {
       resumeCart,
       customerFirstName: normalizeNamePart(customer.first_name),
@@ -410,6 +514,8 @@ app.post('/incoming', async (req, res) => {
       faqs,
       upsellRules,
     });
+    console.log(`[timing] createUltravoxCall: ${Date.now() - t6}ms`);
+    console.log(`[timing] total /incoming: ${Date.now() - t0}ms`);
     console.log('Ultravox joinUrl:', joinUrl);
 
     res.type('text/xml').send(buildTeXML(joinUrl));
@@ -623,7 +729,22 @@ app.post('/tool/cart/clear/:callerPhone', async (req, res) => {
 
   try {
     callContext.cart = [];
-    if (!callContext.isDemo) await updateCart(callContext.conversationId, []);
+
+    if (!callContext.isDemo) {
+      // If this conversation was resumed from a previous call (cart had items), clearing means
+      // the user wants a fresh start — complete the old row and open a new conversation.
+      if (callContext.resumedFromPrior) {
+        console.log('[cart/clear] resumed conversation cleared — completing old row and creating new one:', callContext.conversationId);
+        await completeConversation(callContext.conversationId);
+        const newConv = await createConversation(callContext.restaurantId, callContext.customerId);
+        callContext.conversationId = newConv.id;
+        callContext.resumedFromPrior = false;
+        console.log('[cart/clear] new conversation created:', newConv.id);
+      } else {
+        await updateCart(callContext.conversationId, []);
+      }
+    }
+
     res.json({
       result: 'Cart cleared. You can start a new order now.',
       cart: buildCartSnapshot([]),
@@ -792,8 +913,10 @@ app.get('/payment/cancel', (req, res) => {
 });
 
 function buildTeXML(joinUrl) {
+  const serverUrl = getSecrets().serverUrl;
+  const statusCallbackAttr = serverUrl ? ` statusCallback="${serverUrl}/call-status" statusCallbackMethod="POST"` : '';
   return `<?xml version="1.0" encoding="UTF-8"?>
-<Response>
+<Response${statusCallbackAttr}>
   <Connect>
     <Stream
       url="${joinUrl}"

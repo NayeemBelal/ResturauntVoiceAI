@@ -1,20 +1,21 @@
 const fs = require('fs');
 const path = require('path');
+const { compressMenu } = require('./menu-compress');
 
 const DATA_DIR = path.join(__dirname, '..', 'data', 'lime_n_dime');
 const MENU_PATH = path.join(DATA_DIR, 'menu.json');
 
 const template = fs.readFileSync(path.join(DATA_DIR, 'oneflow.txt'), 'utf8');
 const businessLogic = fs.readFileSync(path.join(DATA_DIR, 'business_logic.txt'), 'utf8');
-let menu = fs.existsSync(MENU_PATH) ? JSON.parse(fs.readFileSync(MENU_PATH, 'utf8')) : {};
+let menu = fs.existsSync(MENU_PATH) ? compressMenu(JSON.parse(fs.readFileSync(MENU_PATH, 'utf8'))) : {};
 
 function reloadMenu(menuData) {
   if (menuData) {
-    menu = menuData;
+    menu = compressMenu(menuData);
     return;
   }
   try {
-    menu = JSON.parse(fs.readFileSync(MENU_PATH, 'utf8'));
+    menu = compressMenu(JSON.parse(fs.readFileSync(MENU_PATH, 'utf8')));
   } catch (err) {
     console.error('[prompt] Failed to reload menu.json:', err.message);
   }
