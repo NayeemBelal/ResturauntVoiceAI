@@ -29,9 +29,11 @@ function buildSystemPrompt(callContext = {}) {
     aiGreeting = null,
     faqs = [],
     upsellRules = [],
+    businessHours = '',
   } = callContext;
   let prompt = template
     .replace('{business_logic}', businessLogic.trim())
+    .replace('{business_hours}', businessHours.trim() || 'Business hours are not available.')
     .replace('{menu}', JSON.stringify(menu, null, 2));
 
   const hasFirstName = typeof customerFirstName === 'string' && customerFirstName.trim().length > 0;

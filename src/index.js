@@ -10,7 +10,7 @@ const { createUltravoxCall, createDemoUltravoxCall } = require('./ultravox');
 const { reloadMenu } = require('./prompt');
 const { createCheckoutSession, sendSMS, pendingOrders } = require('./checkout');
 const { createOrder: createCloverOrder, markOrderPaid, printTicket, getBusinessAddress } = require('./clover');
-const { getFormattedHours } = require('./googlePlaces');
+// google_places direct calls removed — hours now proxied through TextToOrder backend
 const {
   getRestaurantByVoiceNumber,
   upsertCustomer,
@@ -199,6 +199,7 @@ function buildCartSnapshot(cart = []) {
 
 async function transferLiveCall(callSid, destinationNumber, fromNumber) {
   const { telnyxApiKey } = getSecrets();
+  const to = decodeURIComponent(destinationNumber);
   const response = await fetch(`https://api.telnyx.com/v2/calls/${encodeURIComponent(callSid)}/actions/transfer`, {
     method: 'POST',
     headers: {
@@ -206,7 +207,7 @@ async function transferLiveCall(callSid, destinationNumber, fromNumber) {
       'Authorization': `Bearer ${telnyxApiKey}`,
     },
     body: JSON.stringify({
-      to: destinationNumber,
+      to,
       from: fromNumber,
     }),
   });
@@ -444,6 +445,57 @@ async function handleDemoCall(res, callerPhone, calledNumber, callSid) {
   }
 }
 
+// Fetch and format business hours from the TextToOrder backend for prompt injection.
+// Returns a plain-text string with full weekly hours and today's last-order cutoff.
+async function fetchHoursText(restaurantId) {
+  try {
+    const apiRes = await fetch(`${BACKEND_URL}/api/business-hours?restaurant_id=${restaurantId}`);
+    if (!apiRes.ok) throw new Error(`HTTP ${apiRes.status}`);
+    const data = await apiRes.json();
+
+    const hours = data.hoursOverride ?? data.googleHours ?? {};
+    const tz = data.timezone || 'UTC';
+
+    if (!hours || !Object.keys(hours).length) return '';
+
+    const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+
+    const lines = DAYS.map(day => {
+      const h = hours[day];
+      if (!h || h.toLowerCase() === 'closed') return `${day.charAt(0).toUpperCase() + day.slice(1)}: Closed`;
+      return `${day.charAt(0).toUpperCase() + day.slice(1)}: ${h}`;
+    });
+
+    // Compute today's last-order cutoff (15 min before close)
+    const now = new Date(new Date().toLocaleString('en-US', { timeZone: tz }));
+    const todayDay = DAYS[now.getDay() === 0 ? 6 : now.getDay() - 1];
+    const todayHours = hours[todayDay] || '';
+    let cutoffNote = '';
+    const match = todayHours.match(/[-–]\s*(\d{1,2}:\d{2}\s*(?:AM|PM))/i);
+    if (match) {
+      const [hh, rest] = match[1].split(':');
+      const [mm, period] = rest.trim().split(/\s+/);
+      let h = parseInt(hh, 10);
+      const m = parseInt(mm, 10);
+      if (period?.toUpperCase() === 'PM' && h !== 12) h += 12;
+      if (period?.toUpperCase() === 'AM' && h === 12) h = 0;
+      // Handle midnight (0:00) — treat as 24:00 so subtraction doesn't go negative
+      const closeMinutes = (h === 0 ? 24 * 60 : h * 60) + m;
+      const cutoffMin = closeMinutes - 15;
+      const ch = Math.floor(cutoffMin / 60) % 24;
+      const cm = cutoffMin % 60;
+      const cp = ch >= 12 ? 'PM' : 'AM';
+      const ch12 = ch % 12 || 12;
+      cutoffNote = `\nToday's last order cutoff: ${ch12}:${String(cm).padStart(2, '0')} ${cp} (15 minutes before closing). Do not accept new orders after this time.`;
+    }
+
+    return `Business hours (${tz}):\n${lines.join('\n')}${cutoffNote}`;
+  } catch (err) {
+    console.error('[fetchHoursText] error:', err.message);
+    return '';
+  }
+}
+
 // Telnyx TeXML webhook — fires when an inbound call arrives
 app.post('/incoming', async (req, res) => {
   const callerPhone = req.body.From || req.body.from;
@@ -479,14 +531,16 @@ app.post('/incoming', async (req, res) => {
     console.log(`[timing] createConversation (skipped if existing): ${Date.now() - t4}ms`);
 
     const restaurantConfig = getRestaurantConfig(calledNumber);
-    const transferPhoneNumber = restaurant.forwarding_number || restaurantConfig?.transfer_phone_number || '';
+    const rawTransferPhone = restaurant.forwarding_number || restaurantConfig?.transfer_phone_number || '';
+    const transferPhoneNumber = rawTransferPhone ? decodeURIComponent(rawTransferPhone) : '';
 
     const t5 = Date.now();
-    const [faqs, upsellRules] = await Promise.all([
+    const [faqs, upsellRules, businessHours] = await Promise.all([
       getRestaurantFAQs(restaurant.id),
       getUpsellRules(restaurant.id),
+      fetchHoursText(restaurant.id),
     ]);
-    console.log(`[timing] getRestaurantFAQs + getUpsellRules: ${Date.now() - t5}ms`);
+    console.log(`[timing] getRestaurantFAQs + getUpsellRules + fetchHoursText: ${Date.now() - t5}ms`);
 
     activeCalls.set(callerPhone, {
       restaurantId: restaurant.id,
@@ -513,6 +567,7 @@ app.post('/incoming', async (req, res) => {
       aiVoiceId: restaurant.ai_voice_id ?? null,
       faqs,
       upsellRules,
+      businessHours,
     });
     console.log(`[timing] createUltravoxCall: ${Date.now() - t6}ms`);
     console.log(`[timing] total /incoming: ${Date.now() - t0}ms`);
@@ -545,16 +600,22 @@ app.post('/tool/business-hours', async (req, res) => {
     const config = getRestaurantConfig(calledNumber) ?? getFirstRestaurantConfig();
     console.log('[business-hours] restaurant config:', JSON.stringify(config));
 
-    const placeId = config?.google_place_id;
-    if (!placeId) {
-      console.error('[business-hours] no google_place_id in config for calledNumber:', calledNumber);
-      return res.status(500).json({ error: 'Google Place ID not configured for this restaurant.' });
+    const restaurantId = config?.restaurant_id;
+    if (!restaurantId) {
+      console.error('[business-hours] no restaurant_id in config for calledNumber:', calledNumber);
+      return res.status(500).json({ error: 'restaurant_id not configured for this restaurant.' });
     }
 
-    console.log('[business-hours] fetching hours for place_id:', placeId);
-    const result = await getFormattedHours(placeId);
-    console.log('[business-hours] result:', JSON.stringify(result));
-    res.json(result);
+    console.log('[business-hours] fetching hours from backend for restaurant_id:', restaurantId);
+    const apiRes = await fetch(`${BACKEND_URL}/api/business-hours?restaurant_id=${restaurantId}`);
+    if (!apiRes.ok) throw new Error(`Backend returned HTTP ${apiRes.status}`);
+
+    const data = await apiRes.json();
+    console.log('[business-hours] result:', JSON.stringify(data));
+
+    // Return in the same shape the AI prompt expects
+    const hours = data.hoursOverride ?? data.googleHours ?? {};
+    res.json({ hours, openNow: data.isOpen, unavailable: !Object.keys(hours).length });
   } catch (err) {
     console.error('[business-hours] error:', err.message, err.stack);
     res.status(500).json({ error: 'Could not retrieve hours.' });
