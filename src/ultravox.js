@@ -12,7 +12,11 @@ function buildCallConfig(callerPhone, merchantId, callContext = {}) {
     model: "ultravox-v0.7",
     voice: "Blake - Cartesia",
     medium: { telnyx: {} },
-    firstSpeakerSettings: { agent: {} },
+    firstSpeakerSettings: { agent: { uninterruptible: true } },
+    vadSettings: {
+      minimumInterruptionDuration: "0.5s",
+      frameActivationThreshold: 0.2,
+    },
     selectedTools: [
       { toolName: "hangUp" },
       {
@@ -230,7 +234,7 @@ async function createUltravoxCall(callerPhone, merchantId, callContext = {}) {
   }
 
   const data = await response.json();
-  return data.joinUrl;
+  return { joinUrl: data.joinUrl, callId: data.callId };
 }
 
 function buildDemoCallConfig(callerPhone) {
@@ -241,7 +245,11 @@ function buildDemoCallConfig(callerPhone) {
     model: "ultravox-v0.7",
     voice: "Blake - Cartesia",
     medium: { telnyx: {} },
-    firstSpeakerSettings: { agent: {} },
+    firstSpeakerSettings: { agent: { uninterruptible: true } },
+    vadSettings: {
+      minimumInterruptionDuration: "0.5s",
+      frameActivationThreshold: 0.2,
+    },
     selectedTools: [
       { toolName: "hangUp" },
       {
@@ -371,7 +379,20 @@ async function createDemoUltravoxCall(callerPhone) {
   }
 
   const data = await response.json();
-  return data.joinUrl;
+  return { joinUrl: data.joinUrl, callId: data.callId };
 }
 
-module.exports = { createUltravoxCall, createDemoUltravoxCall };
+async function fetchCallTranscript(ultravoxCallId) {
+  const { ultravoxApiKey } = getSecrets();
+  const res = await fetch(
+    `https://api.ultravox.ai/api/calls/${ultravoxCallId}/messages`,
+    { headers: { 'X-API-Key': ultravoxApiKey } }
+  );
+  if (!res.ok) {
+    return [];
+  }
+  const data = await res.json();
+  return data.results ?? [];
+}
+
+module.exports = { createUltravoxCall, createDemoUltravoxCall, fetchCallTranscript };

@@ -273,6 +273,37 @@ async function completeConversation(conversationId) {
   if (error) throw new Error(`Conversation complete failed: ${error.message}`);
 }
 
+async function setConversationUltravoxCallId(conversationId, ultravoxCallId) {
+  await getSupabase()
+    .from('conversations')
+    .update({ ultravox_call_id: ultravoxCallId })
+    .eq('id', conversationId);
+}
+
+async function saveCallTranscript(conversationId, results) {
+  const { data: conv } = await getSupabase()
+    .from('conversations')
+    .select('created_at')
+    .eq('id', conversationId)
+    .single();
+  const callStart = conv?.created_at ? new Date(conv.created_at) : null;
+
+  const roleMap = { MESSAGE_ROLE_AGENT: 'assistant', MESSAGE_ROLE_USER: 'user' };
+  const rows = results
+    .filter(m => roleMap[m.role])
+    .map(m => {
+      let sent_at = null;
+      if (callStart && m.wallClockTimespan?.start) {
+        const offsetMs = parseFloat(m.wallClockTimespan.start) * 1000;
+        sent_at = new Date(callStart.getTime() + offsetMs).toISOString();
+      }
+      return { conversation_id: conversationId, role: roleMap[m.role], content: m.text, sent_at };
+    });
+  if (!rows.length) return;
+  const { error } = await getSupabase().from('messages').insert(rows);
+  if (error) throw new Error(`saveCallTranscript failed: ${error.message}`);
+}
+
 module.exports = {
   getRestaurantByVoiceNumber,
   upsertCustomer,
@@ -291,4 +322,6 @@ module.exports = {
   completeConversation,
   getRestaurantFAQs,
   getUpsellRules,
+  setConversationUltravoxCallId,
+  saveCallTranscript,
 };

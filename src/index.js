@@ -6,7 +6,7 @@ const express = require('express');
 const Stripe = require('stripe');
 const { loadSecrets, getSecrets } = require('./secrets');
 const { loadRestaurantConfigs, getRestaurantConfig, getFirstRestaurantConfig } = require('./restaurant-configs');
-const { createUltravoxCall, createDemoUltravoxCall } = require('./ultravox');
+const { createUltravoxCall, createDemoUltravoxCall, fetchCallTranscript } = require('./ultravox');
 const { reloadMenu } = require('./prompt');
 const { createCheckoutSession, sendSMS, pendingOrders } = require('./checkout');
 const { createOrder: createCloverOrder, markOrderPaid, printTicket, getBusinessAddress } = require('./clover');
@@ -27,16 +27,20 @@ const {
   completeConversation,
   getRestaurantFAQs,
   getUpsellRules,
+  setConversationUltravoxCallId,
+  saveCallTranscript,
 } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Temporary diagnostic — logs every request before any body parsing
-app.use((req, res, next) => {
-  console.log(`[DIAG] ${req.method} ${req.path} content-type="${req.headers['content-type']}" content-length="${req.headers['content-length']}"`);
-  next();
-});
+async function fetchAndStoreTranscript(ultravoxCallId, conversationId) {
+  // Wait for Ultravox to finalize the transcript before fetching
+  await new Promise(resolve => setTimeout(resolve, 5000));
+  const results = await fetchCallTranscript(ultravoxCallId);
+  await saveCallTranscript(conversationId, results);
+}
+
 
 const MENU_PATH = path.join(__dirname, '..', 'data', 'lime_n_dime', 'menu.json');
 const BACKEND_URL = (process.env.BACKEND_URL || 'http://localhost:8000').replace(/\/$/, '');
@@ -346,6 +350,12 @@ app.post('/call-status', express.urlencoded({ extended: false }), express.json()
         await updateConversationOutcome(conversationId, updates);
         await setNoOutcomeIfNull(conversationId);
         console.log('[call-status] DB update SUCCESS for conversationId:', conversationId);
+        const uvCallId = mapContext?.ultravoxCallId;
+        if (uvCallId) {
+          fetchAndStoreTranscript(uvCallId, conversationId).catch(err =>
+            console.error('[call-status] transcript fetch failed:', err.message)
+          );
+        }
       } else {
         console.warn('[call-status] WARN: no conversation found for caller:', callerPhone);
       }
@@ -405,6 +415,12 @@ app.post('/telnyx/events', express.json(), async (req, res) => {
           await updateConversationOutcome(conversationId, updates);
           await setNoOutcomeIfNull(conversationId);
           console.log('[telnyx/events] DB update SUCCESS for conversationId:', conversationId);
+          const uvCallId = mapContext?.ultravoxCallId;
+          if (uvCallId) {
+            fetchAndStoreTranscript(uvCallId, conversationId).catch(err =>
+              console.error('[telnyx/events] transcript fetch failed:', err.message)
+            );
+          }
         } else {
           console.warn('[telnyx/events] WARN: no conversation found for caller:', callerPhone, '— duration not recorded');
         }
@@ -439,7 +455,7 @@ async function handleDemoCall(res, callerPhone, calledNumber, callSid) {
   console.log(`[demo] Call context set — caller: ${callerPhone}, conversationId: ${conversationId}`);
 
   try {
-    const joinUrl = await createDemoUltravoxCall(callerPhone);
+    const { joinUrl } = await createDemoUltravoxCall(callerPhone);
     console.log('[demo] Ultravox joinUrl obtained successfully');
     res.type('text/xml').send(buildTeXML(joinUrl));
   } catch (err) {
@@ -583,7 +599,7 @@ app.post('/incoming', async (req, res) => {
     };
 
     const t2 = Date.now();
-    const joinUrl = await createUltravoxCall(callerPhone, restaurant.pos_merchant_id, preloadedContext);
+    const { joinUrl, callId: ultravoxCallId } = await createUltravoxCall(callerPhone, restaurant.pos_merchant_id, preloadedContext);
     console.log(`[timing] createUltravoxCall: ${Date.now() - t2}ms`);
     console.log(`[timing] total /incoming: ${Date.now() - t0}ms`);
 
@@ -600,7 +616,14 @@ app.post('/incoming', async (req, res) => {
       transferPhoneNumber,
       cart: resumeCart,
       resumedFromPrior,
+      ultravoxCallId,
     });
+
+    if (ultravoxCallId && conversation?.id) {
+      setConversationUltravoxCallId(conversation.id, ultravoxCallId).catch(err =>
+        console.error('[incoming] failed to persist ultravox_call_id:', err.message)
+      );
+    }
 
     res.type('text/xml').send(buildTeXML(joinUrl));
     // activeCalls now covers deduplication for the rest of this call's lifecycle
