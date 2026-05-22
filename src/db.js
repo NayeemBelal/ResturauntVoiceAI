@@ -225,7 +225,16 @@ async function setNoOutcomeIfNull(conversationId) {
   if (error) throw new Error(`setNoOutcomeIfNull failed: ${error.message}`);
 }
 
+// Bounded by number of restaurants (small, fixed set). Lazy expiry on read — no background timer.
+const _faqCache = new Map();   // restaurantId → { data: [...], expiresAt: ms }
+const _upsellCache = new Map(); // restaurantId → { data: [...], expiresAt: ms }
+const FAQ_TTL_MS = 8 * 60 * 60 * 1000;
+const UPSELL_TTL_MS = 8 * 60 * 60 * 1000;
+
 async function getRestaurantFAQs(restaurantId) {
+  const cached = _faqCache.get(restaurantId);
+  if (cached && Date.now() < cached.expiresAt) return cached.data;
+
   const { data, error } = await getSupabase()
     .from('faqs')
     .select('question, answer, category')
@@ -234,10 +243,15 @@ async function getRestaurantFAQs(restaurantId) {
     .order('sort_order', { ascending: true });
 
   if (error) throw new Error(`FAQ fetch failed: ${error.message}`);
-  return data ?? [];
+  const result = data ?? [];
+  _faqCache.set(restaurantId, { data: result, expiresAt: Date.now() + FAQ_TTL_MS });
+  return result;
 }
 
 async function getUpsellRules(restaurantId) {
+  const cached = _upsellCache.get(restaurantId);
+  if (cached && Date.now() < cached.expiresAt) return cached.data;
+
   const { data, error } = await getSupabase()
     .from('upsell_rules')
     .select('trigger_item_name, suggested_item_name, message')
@@ -245,7 +259,9 @@ async function getUpsellRules(restaurantId) {
     .eq('active', true);
 
   if (error) throw new Error(`Upsell rules fetch failed: ${error.message}`);
-  return data ?? [];
+  const result = data ?? [];
+  _upsellCache.set(restaurantId, { data: result, expiresAt: Date.now() + UPSELL_TTL_MS });
+  return result;
 }
 
 async function completeConversation(conversationId) {

@@ -22,62 +22,47 @@ function reloadMenu(menuData) {
 }
 
 function buildSystemPrompt(callContext = {}) {
-  const {
-    resumeCart = [],
-    customerFirstName = '',
-    customerLastName = '',
-    aiGreeting = null,
-    faqs = [],
-    upsellRules = [],
-    businessHours = '',
-  } = callContext;
   let prompt = template
     .replace('{business_logic}', businessLogic.trim())
-    .replace('{business_hours}', businessHours.trim() || 'Business hours are not available.')
     .replace('{menu}', JSON.stringify(menu, null, 2));
 
-  const hasFirstName = typeof customerFirstName === 'string' && customerFirstName.trim().length > 0;
-  const hasLastName = typeof customerLastName === 'string' && customerLastName.trim().length > 0;
+  const {
+    greeting = 'Hi, what can I get for you today?',
+    customerFirstName = '',
+    customerLastName = '',
+    hasFullName = false,
+    businessHours = null,
+    faqs = [],
+    upsellRules = [],
+    resumeCart = [],
+    resumedFromPrior = false,
+  } = callContext;
 
-  if (hasFirstName) {
-    prompt += `\n\nRETURNING CALLER:\nThis caller already has a saved first name: ${customerFirstName.trim()}.\nAt the very start of the call, greet them once by first name in a natural way, like a familiar restaurant regular, then move straight into helping them. Do not repeat the personalized welcome later in the call.`;
+  prompt += `\n\nCALL START:\nYour very first words must be exactly: "${greeting}"\nDo not say anything before this. Do not call any tool before speaking. Speak the greeting the moment the call connects.`;
+
+  if (resumedFromPrior && resumeCart.length > 0) {
+    prompt += `\n\nRESUMED CART: The customer was already told in the greeting that they have an open order. Wait for their response. If they want to continue, proceed with the existing cart — do not re-add any of these items. If they want to start fresh, call clearCart immediately before taking any new items. Do not say the cart is cleared until clearCart returns. Items in the resumed cart: ${JSON.stringify(resumeCart)}`;
   }
 
-  if (!hasFirstName || !hasLastName) {
-    const missingParts = [];
-    if (!hasFirstName) missingParts.push('first name');
-    if (!hasLastName) missingParts.push('last name');
-    prompt += `\n\nCUSTOMER NAME CAPTURE:\nBefore sending the checkout link, collect the customer's ${missingParts.join(' and ')} and have them spell it clearly. After you have both first and last name, call saveCustomerName before calling sendCheckoutLink. If saveCustomerName fails, correct the name and retry before sending checkout.`;
-  } else {
-    prompt += `\n\nCUSTOMER NAME CAPTURE:\nThis caller already has a saved full name. Do not ask them to re-spell it unless they explicitly ask to correct it. If they volunteer a correction, call saveCustomerName with the updated first and last name before checkout.`;
-  }
+  prompt += `\n\nCUSTOMER ON FILE:\n- First name: ${customerFirstName || 'unknown'}\n- Last name: ${customerLastName || 'unknown'}\n- Full name on file: ${hasFullName}`;
 
-  if (resumeCart.length > 0) {
-    const lines = resumeCart.map(item => {
-      const modifiers = item.modifiers ?? [];
-      const modNames = modifiers.map(mod => mod.name).join(', ');
-      const unitTotal = (item.price_cents + modifiers.reduce((sum, mod) => sum + mod.price_cents, 0)) / 100;
-      const notePart = item.note ? ` — ${item.note}` : '';
-      const displayName = modNames ? `${item.name} (${modNames})${notePart}` : `${item.name}${notePart}`;
-      return `- ${displayName} x${item.quantity} - $${(unitTotal * item.quantity).toFixed(2)}`;
-    }).join('\n');
-
-    prompt += `\n\nRESUMED CALL - EXISTING CART:\nThis customer's call was dropped and they already have items in their cart. Their saved cart:\n${lines}\n\nAt the start of the call, you must tell them they already have an order in progress and briefly mention that you still have their saved cart. Then ask whether they want to continue that order or clear it and start over. Do this before taking any new items. If they want to start over, call clearCart immediately before taking the new order. Do not tell them the cart is cleared unless clearCart succeeds. If clearCart fails, say there was a problem clearing it and retry. Do not ignore the existing cart or act like this is a brand new order.`;
-  }
-
-  if (aiGreeting && aiGreeting.trim().length > 0) {
-    prompt += `\n\nOPENING GREETING:\nYour exact opening line for this call must be: "${aiGreeting.trim()}"\nUse this verbatim or very close to it. Do not substitute a different greeting.`;
+  if (businessHours) {
+    prompt += `\n\nBUSINESS HOURS (enforce cutoff — do not accept orders after closing):\n${businessHours}`;
   }
 
   if (faqs.length > 0) {
-    const faqLines = faqs.map(f => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n');
-    prompt += `\n\nFREQUENTLY ASKED QUESTIONS:\nThe restaurant owner has provided answers to common questions. Use these when a customer asks a matching question. These do not cover everything — if a customer asks something not listed here, answer using your best judgment or use the transferCall tool if you are not sure.\n\n${faqLines}`;
+    const faqText = faqs.map(f => `Q: ${f.question}\nA: ${f.answer}`).join('\n\n');
+    prompt += `\n\nFREQUENTLY ASKED QUESTIONS:\n${faqText}`;
   }
 
   if (upsellRules.length > 0) {
-    const upsellLines = upsellRules.map(r => `- When customer orders "${r.trigger_item_name}", suggest "${r.suggested_item_name}": "${r.message}"`).join('\n');
-    prompt += `\n\nUPSELL OPPORTUNITIES:\nWhen the following items are added to the cart, naturally suggest the paired item once in a conversational way. Only suggest it once — do not be pushy.\n\n${upsellLines}`;
+    const upsellText = upsellRules.map(r => `When customer orders "${r.trigger_item_name}", suggest: "${r.suggested_item_name}" — ${r.message}`).join('\n');
+    prompt += `\n\nUPSELL RULES (mention once, naturally, do not be pushy):\n${upsellText}`;
   }
+
+  prompt += `\n\nCUSTOMER NAME CAPTURE:\nBefore calling sendCheckoutLink, you need both first and last name. If hasFullName is true in your context above, their name is already saved — do not ask again unless they volunteer a correction. If hasFullName is false, ask the customer to spell their name clearly before checkout. Once you have both names, call saveCustomerName before sendCheckoutLink. If saveCustomerName fails, correct the name and retry.`;
+
+  prompt += `\n\nCART TOOL CALL RULE — NON-NEGOTIABLE:\nEvery time the customer confirms an item, call addToCart in that same turn. Before calling, say a short natural bridge phrase to keep the customer engaged during the brief processing moment — for example: "Let me get that added for you," or "One sec, getting that in now — how's your evening going?" or any light conversational filler or question. Do not confirm the item was added until addToCart returns successfully. Never defer. Never batch. Never hold items in memory. The cart on the server is the only truth. getCart at checkout must match what the customer ordered — if it does not, something failed during ordering, not at checkout.`;
 
   return prompt;
 }
