@@ -225,7 +225,16 @@ async function setNoOutcomeIfNull(conversationId) {
   if (error) throw new Error(`setNoOutcomeIfNull failed: ${error.message}`);
 }
 
+// Bounded by number of restaurants (small, fixed set). Lazy expiry on read — no background timer.
+const _faqCache = new Map();   // restaurantId → { data: [...], expiresAt: ms }
+const _upsellCache = new Map(); // restaurantId → { data: [...], expiresAt: ms }
+const FAQ_TTL_MS = 8 * 60 * 60 * 1000;
+const UPSELL_TTL_MS = 8 * 60 * 60 * 1000;
+
 async function getRestaurantFAQs(restaurantId) {
+  const cached = _faqCache.get(restaurantId);
+  if (cached && Date.now() < cached.expiresAt) return cached.data;
+
   const { data, error } = await getSupabase()
     .from('faqs')
     .select('question, answer, category')
@@ -234,10 +243,15 @@ async function getRestaurantFAQs(restaurantId) {
     .order('sort_order', { ascending: true });
 
   if (error) throw new Error(`FAQ fetch failed: ${error.message}`);
-  return data ?? [];
+  const result = data ?? [];
+  _faqCache.set(restaurantId, { data: result, expiresAt: Date.now() + FAQ_TTL_MS });
+  return result;
 }
 
 async function getUpsellRules(restaurantId) {
+  const cached = _upsellCache.get(restaurantId);
+  if (cached && Date.now() < cached.expiresAt) return cached.data;
+
   const { data, error } = await getSupabase()
     .from('upsell_rules')
     .select('trigger_item_name, suggested_item_name, message')
@@ -245,7 +259,9 @@ async function getUpsellRules(restaurantId) {
     .eq('active', true);
 
   if (error) throw new Error(`Upsell rules fetch failed: ${error.message}`);
-  return data ?? [];
+  const result = data ?? [];
+  _upsellCache.set(restaurantId, { data: result, expiresAt: Date.now() + UPSELL_TTL_MS });
+  return result;
 }
 
 async function completeConversation(conversationId) {
@@ -255,6 +271,37 @@ async function completeConversation(conversationId) {
     .eq('id', conversationId);
 
   if (error) throw new Error(`Conversation complete failed: ${error.message}`);
+}
+
+async function setConversationUltravoxCallId(conversationId, ultravoxCallId) {
+  await getSupabase()
+    .from('conversations')
+    .update({ ultravox_call_id: ultravoxCallId })
+    .eq('id', conversationId);
+}
+
+async function saveCallTranscript(conversationId, results) {
+  const { data: conv } = await getSupabase()
+    .from('conversations')
+    .select('created_at')
+    .eq('id', conversationId)
+    .single();
+  const callStart = conv?.created_at ? new Date(conv.created_at) : null;
+
+  const roleMap = { MESSAGE_ROLE_AGENT: 'assistant', MESSAGE_ROLE_USER: 'user' };
+  const rows = results
+    .filter(m => roleMap[m.role])
+    .map(m => {
+      let sent_at = null;
+      if (callStart && m.wallClockTimespan?.start) {
+        const offsetMs = parseFloat(m.wallClockTimespan.start) * 1000;
+        sent_at = new Date(callStart.getTime() + offsetMs).toISOString();
+      }
+      return { conversation_id: conversationId, role: roleMap[m.role], content: m.text, sent_at };
+    });
+  if (!rows.length) return;
+  const { error } = await getSupabase().from('messages').insert(rows);
+  if (error) throw new Error(`saveCallTranscript failed: ${error.message}`);
 }
 
 module.exports = {
@@ -275,4 +322,6 @@ module.exports = {
   completeConversation,
   getRestaurantFAQs,
   getUpsellRules,
+  setConversationUltravoxCallId,
+  saveCallTranscript,
 };

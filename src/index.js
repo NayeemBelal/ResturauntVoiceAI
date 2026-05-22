@@ -6,7 +6,7 @@ const express = require('express');
 const Stripe = require('stripe');
 const { loadSecrets, getSecrets } = require('./secrets');
 const { loadRestaurantConfigs, getRestaurantConfig, getFirstRestaurantConfig } = require('./restaurant-configs');
-const { createUltravoxCall, createDemoUltravoxCall } = require('./ultravox');
+const { createUltravoxCall, createDemoUltravoxCall, fetchCallTranscript } = require('./ultravox');
 const { reloadMenu } = require('./prompt');
 const { createCheckoutSession, sendSMS, pendingOrders } = require('./checkout');
 const { createOrder: createCloverOrder, markOrderPaid, printTicket, getBusinessAddress } = require('./clover');
@@ -27,16 +27,20 @@ const {
   completeConversation,
   getRestaurantFAQs,
   getUpsellRules,
+  setConversationUltravoxCallId,
+  saveCallTranscript,
 } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Temporary diagnostic — logs every request before any body parsing
-app.use((req, res, next) => {
-  console.log(`[DIAG] ${req.method} ${req.path} content-type="${req.headers['content-type']}" content-length="${req.headers['content-length']}"`);
-  next();
-});
+async function fetchAndStoreTranscript(ultravoxCallId, conversationId) {
+  // Wait for Ultravox to finalize the transcript before fetching
+  await new Promise(resolve => setTimeout(resolve, 5000));
+  const results = await fetchCallTranscript(ultravoxCallId);
+  await saveCallTranscript(conversationId, results);
+}
+
 
 const MENU_PATH = path.join(__dirname, '..', 'data', 'lime_n_dime', 'menu.json');
 const BACKEND_URL = (process.env.BACKEND_URL || 'http://localhost:8000').replace(/\/$/, '');
@@ -119,6 +123,10 @@ const DEMO_MODIFIER_LOOKUP = {
 
 // In-memory call state: callerPhone → { restaurantId, posMerchantId, conversationId, customerId, customerFirstName, customerLastName, callSid, calledNumber, cart, isDemo }
 const activeCalls = new Map();
+
+// Deduplication: callSids currently being processed. Set synchronously before the first await
+// so concurrent duplicate webhooks from Telnyx can't both race through and create two sessions.
+const processingCallSids = new Set();
 
 // In-memory demo checkout sessions: sessionId → { items, subtotalCents }
 const demoSessions = new Map();
@@ -342,6 +350,12 @@ app.post('/call-status', express.urlencoded({ extended: false }), express.json()
         await updateConversationOutcome(conversationId, updates);
         await setNoOutcomeIfNull(conversationId);
         console.log('[call-status] DB update SUCCESS for conversationId:', conversationId);
+        const uvCallId = mapContext?.ultravoxCallId;
+        if (uvCallId) {
+          fetchAndStoreTranscript(uvCallId, conversationId).catch(err =>
+            console.error('[call-status] transcript fetch failed:', err.message)
+          );
+        }
       } else {
         console.warn('[call-status] WARN: no conversation found for caller:', callerPhone);
       }
@@ -401,6 +415,12 @@ app.post('/telnyx/events', express.json(), async (req, res) => {
           await updateConversationOutcome(conversationId, updates);
           await setNoOutcomeIfNull(conversationId);
           console.log('[telnyx/events] DB update SUCCESS for conversationId:', conversationId);
+          const uvCallId = mapContext?.ultravoxCallId;
+          if (uvCallId) {
+            fetchAndStoreTranscript(uvCallId, conversationId).catch(err =>
+              console.error('[telnyx/events] transcript fetch failed:', err.message)
+            );
+          }
         } else {
           console.warn('[telnyx/events] WARN: no conversation found for caller:', callerPhone, '— duration not recorded');
         }
@@ -435,7 +455,7 @@ async function handleDemoCall(res, callerPhone, calledNumber, callSid) {
   console.log(`[demo] Call context set — caller: ${callerPhone}, conversationId: ${conversationId}`);
 
   try {
-    const joinUrl = await createDemoUltravoxCall(callerPhone);
+    const { joinUrl } = await createDemoUltravoxCall(callerPhone);
     console.log('[demo] Ultravox joinUrl obtained successfully');
     res.type('text/xml').send(buildTeXML(joinUrl));
   } catch (err) {
@@ -445,9 +465,16 @@ async function handleDemoCall(res, callerPhone, calledNumber, callSid) {
   }
 }
 
+// Bounded by number of restaurants. Lazy expiry on read — no background timer.
+const _hoursCache = new Map(); // restaurantId → { text: string, expiresAt: ms }
+const HOURS_TTL_MS = 60 * 60 * 1000;
+
 // Fetch and format business hours from the TextToOrder backend for prompt injection.
 // Returns a plain-text string with full weekly hours and today's last-order cutoff.
 async function fetchHoursText(restaurantId) {
+  const cached = _hoursCache.get(restaurantId);
+  if (cached && Date.now() < cached.expiresAt) return cached.text;
+
   try {
     const apiRes = await fetch(`${BACKEND_URL}/api/business-hours?restaurant_id=${restaurantId}`);
     if (!apiRes.ok) throw new Error(`HTTP ${apiRes.status}`);
@@ -456,7 +483,10 @@ async function fetchHoursText(restaurantId) {
     const hours = data.hoursOverride ?? data.googleHours ?? {};
     const tz = data.timezone || 'UTC';
 
-    if (!hours || !Object.keys(hours).length) return '';
+    if (!hours || !Object.keys(hours).length) {
+      _hoursCache.set(restaurantId, { text: '', expiresAt: Date.now() + HOURS_TTL_MS });
+      return '';
+    }
 
     const DAYS = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
 
@@ -489,8 +519,11 @@ async function fetchHoursText(restaurantId) {
       cutoffNote = `\nToday's last order cutoff: ${ch12}:${String(cm).padStart(2, '0')} ${cp} (15 minutes before closing). Do not accept new orders after this time.`;
     }
 
-    return `Business hours (${tz}):\n${lines.join('\n')}${cutoffNote}`;
+    const text = `Business hours (${tz}):\n${lines.join('\n')}${cutoffNote}`;
+    _hoursCache.set(restaurantId, { text, expiresAt: Date.now() + HOURS_TTL_MS });
+    return text;
   } catch (err) {
+    // Don't cache errors — let the next call retry
     console.error('[fetchHoursText] error:', err.message);
     return '';
   }
@@ -507,44 +540,73 @@ app.post('/incoming', async (req, res) => {
     return handleDemoCall(res, callerPhone, calledNumber, callSid);
   }
 
+  // Telnyx has at-least-once webhook delivery — guard against duplicate POSTs for the same call.
+  // Use callSid as the dedup key (unique per call leg). This must be synchronous so two
+  // concurrent requests can't both pass the check before either sets activeCalls.
+  const dedupeKey = callSid || callerPhone;
+  if (processingCallSids.has(dedupeKey) || activeCalls.has(callerPhone)) {
+    console.log('[incoming] Duplicate webhook ignored — dedupeKey:', dedupeKey, '| callerPhone:', callerPhone);
+    return res.sendStatus(200);
+  }
+  processingCallSids.add(dedupeKey);
+
   try {
     const t0 = Date.now();
     const restaurant = await getRestaurantByVoiceNumber(calledNumber);
     console.log(`[timing] getRestaurantByVoiceNumber: ${Date.now() - t0}ms`);
 
-    const t1 = Date.now();
-    const customer = await upsertCustomer(callerPhone);
-    console.log(`[timing] upsertCustomer: ${Date.now() - t1}ms`);
-
-    const t2 = Date.now();
-    await completeStaleConversations(restaurant.id, customer.id);
-    console.log(`[timing] completeStaleConversations: ${Date.now() - t2}ms`);
-
-    const t3 = Date.now();
-    const existingConversation = await getActiveConversation(restaurant.id, customer.id);
-    console.log(`[timing] getActiveConversation: ${Date.now() - t3}ms`);
-
-    const resumeCart = parseResumeCart(existingConversation?.current_cart);
-
-    const t4 = Date.now();
-    const conversation = existingConversation ?? await createConversation(restaurant.id, customer.id);
-    console.log(`[timing] createConversation (skipped if existing): ${Date.now() - t4}ms`);
-
     const restaurantConfig = getRestaurantConfig(calledNumber);
     const rawTransferPhone = restaurant.forwarding_number || restaurantConfig?.transfer_phone_number || '';
     const transferPhoneNumber = rawTransferPhone ? decodeURIComponent(rawTransferPhone) : '';
 
-    const t5 = Date.now();
-    const [faqs, upsellRules, businessHours] = await Promise.all([
+    // Preload all context in parallel so the AI can speak immediately on connection
+    const t1 = Date.now();
+    const [customer, faqs, upsellRules, businessHours] = await Promise.all([
+      upsertCustomer(callerPhone),
       getRestaurantFAQs(restaurant.id),
       getUpsellRules(restaurant.id),
       fetchHoursText(restaurant.id),
     ]);
-    console.log(`[timing] getRestaurantFAQs + getUpsellRules + fetchHoursText: ${Date.now() - t5}ms`);
+    console.log(`[timing] context preload (parallel): ${Date.now() - t1}ms`);
+
+    completeStaleConversations(restaurant.id, customer.id).catch(err =>
+      console.error('[incoming] completeStaleConversations error:', err.message)
+    );
+
+    const existingConversation = await getActiveConversation(restaurant.id, customer.id);
+    const conversation = existingConversation ?? await createConversation(restaurant.id, customer.id);
+    const resumeCart = parseResumeCart(existingConversation?.current_cart);
+    const resumedFromPrior = !!existingConversation && resumeCart.length > 0;
+
+    // For resumed calls, fold the open-order notice into the greeting itself so the
+    // AI says one continuous sentence instead of two separate turns (which causes a cutoff).
+    const baseGreeting = restaurant.ai_greeting || `Hi, thanks for calling ${restaurant.name || 'us'}!`;
+    const greeting = (resumedFromPrior && resumeCart.length > 0)
+      ? `${baseGreeting.replace(/[?.!,]+$/, '')} — looks like you have an open order from earlier that hasn't been paid for yet. Want to continue it or start fresh?`
+      : baseGreeting;
+
+    const preloadedContext = {
+      aiVoiceId: restaurant.ai_voice_id ?? null,
+      greeting,
+      customerFirstName: normalizeNamePart(customer.first_name),
+      customerLastName: normalizeNamePart(customer.last_name),
+      hasFullName: !!(customer.first_name?.trim() && customer.last_name?.trim()),
+      businessHours: businessHours || null,
+      faqs,
+      upsellRules,
+      resumeCart,
+      resumedFromPrior,
+    };
+
+    const t2 = Date.now();
+    const { joinUrl, callId: ultravoxCallId } = await createUltravoxCall(callerPhone, restaurant.pos_merchant_id, preloadedContext);
+    console.log(`[timing] createUltravoxCall: ${Date.now() - t2}ms`);
+    console.log(`[timing] total /incoming: ${Date.now() - t0}ms`);
 
     activeCalls.set(callerPhone, {
       restaurantId: restaurant.id,
       posMerchantId: restaurant.pos_merchant_id,
+      aiGreeting: restaurant.ai_greeting ?? null,
       conversationId: conversation.id,
       customerId: customer.id,
       customerFirstName: normalizeNamePart(customer.first_name),
@@ -553,30 +615,85 @@ app.post('/incoming', async (req, res) => {
       calledNumber,
       transferPhoneNumber,
       cart: resumeCart,
-      resumedFromPrior: !!existingConversation && resumeCart.length > 0,
+      resumedFromPrior,
+      ultravoxCallId,
     });
 
-    console.log(`Call context set — restaurant: ${restaurant.name}, conversation: ${conversation.id}, resumed cart items: ${resumeCart.length}, faqs: ${faqs.length}, upsells: ${upsellRules.length}`);
-
-    const t6 = Date.now();
-    const joinUrl = await createUltravoxCall(callerPhone, restaurant.pos_merchant_id, {
-      resumeCart,
-      customerFirstName: normalizeNamePart(customer.first_name),
-      customerLastName: normalizeNamePart(customer.last_name),
-      aiGreeting: restaurant.ai_greeting ?? null,
-      aiVoiceId: restaurant.ai_voice_id ?? null,
-      faqs,
-      upsellRules,
-      businessHours,
-    });
-    console.log(`[timing] createUltravoxCall: ${Date.now() - t6}ms`);
-    console.log(`[timing] total /incoming: ${Date.now() - t0}ms`);
-    console.log('Ultravox joinUrl:', joinUrl);
+    if (ultravoxCallId && conversation?.id) {
+      setConversationUltravoxCallId(conversation.id, ultravoxCallId).catch(err =>
+        console.error('[incoming] failed to persist ultravox_call_id:', err.message)
+      );
+    }
 
     res.type('text/xml').send(buildTeXML(joinUrl));
+    // activeCalls now covers deduplication for the rest of this call's lifecycle
+    processingCallSids.delete(dedupeKey);
   } catch (err) {
     console.error('Failed to set up call:', err.message);
+    processingCallSids.delete(dedupeKey); // allow Telnyx to retry on genuine failure
     res.type('text/xml').send(errorTeXML());
+  }
+});
+
+// Mid-call refresh endpoint — context is now preloaded before the Ultravox session starts.
+// Kept as a fallback in case the AI needs to refresh stale context during a call.
+app.post('/tool/call-context/:callerPhone', async (req, res) => {
+  const callerPhone = decodeURIComponent(req.params.callerPhone);
+  const callContext = activeCalls.get(callerPhone);
+
+  if (!callContext) {
+    return res.status(500).json({ error: 'Call context not found.' });
+  }
+
+  try {
+    const t0 = Date.now();
+    const { restaurantId } = callContext;
+
+    const [customer, faqs, upsellRules, businessHours] = await Promise.all([
+      upsertCustomer(callerPhone),
+      getRestaurantFAQs(restaurantId),
+      getUpsellRules(restaurantId),
+      fetchHoursText(restaurantId),
+    ]);
+
+    completeStaleConversations(restaurantId, customer.id).catch(err =>
+      console.error('[call-context] completeStaleConversations error:', err.message)
+    );
+
+    const existingConversation = await getActiveConversation(restaurantId, customer.id);
+    const conversation = existingConversation ?? await createConversation(restaurantId, customer.id);
+    const resumeCart = parseResumeCart(existingConversation?.current_cart);
+
+    callContext.customerId = customer.id;
+    callContext.conversationId = conversation.id;
+    callContext.customerFirstName = normalizeNamePart(customer.first_name);
+    callContext.customerLastName = normalizeNamePart(customer.last_name);
+    callContext.cart = resumeCart;
+    callContext.resumedFromPrior = !!existingConversation && resumeCart.length > 0;
+
+    console.log(`[call-context] resolved in ${Date.now() - t0}ms — customer: ${customer.id}, conversation: ${conversation.id}, resumeCart: ${resumeCart.length} items`);
+
+    const hasFirstName = !!callContext.customerFirstName;
+    const hasLastName = !!callContext.customerLastName;
+    const { aiGreeting } = callContext;
+
+    // Greeting is the restaurant's configured phrase, exactly as stored — no name injection.
+    const greeting = aiGreeting || 'Hi, what can I get for you today?';
+
+    res.json({
+      greeting,
+      customerFirstName: callContext.customerFirstName || null,
+      customerLastName: callContext.customerLastName || null,
+      hasFullName: hasFirstName && hasLastName,
+      resumeCart,
+      resumedFromPrior: callContext.resumedFromPrior,
+      businessHours: businessHours || null,
+      faqs,
+      upsellRules,
+    });
+  } catch (err) {
+    console.error('[call-context] error:', err.message);
+    res.status(500).json({ error: 'Failed to load call context. Continue the call without personalization.' });
   }
 });
 
